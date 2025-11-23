@@ -1,0 +1,214 @@
+from .Deck import Deck
+from .PlayerManager import PlayerManager
+
+
+class GameManager:
+    """
+    GameManager управляет:
+    - началом новой раздачи
+    - постановкой блайндов
+    - очередностью ставок
+    - стадиями (preflop / flop / turn / river)
+    - сбором решений игроков через PlayerManager
+    - определением победителя
+    """
+
+    def __init__(self, game):
+        """
+        game                — объект Game
+        """
+        self.game = game
+
+        # Менеджеры на каждого игрока
+        self.pm = {
+            player: PlayerManager(player)
+            for player in self.game.players
+        }
+
+        self.table = []
+        self.pot = 0
+
+
+    def start_round(self):
+        """
+        Основной игровой цикл одной раздачи.
+        """
+        self._prepare_round()
+
+        self._post_blinds()
+        
+        self._betting_round(start_from="UTG")
+        
+        self._deal_flop()
+        self.show_current_situation()
+        self._betting_round(start_from="SB")
+
+        self._deal_turn()
+        self.show_current_situation()
+        self._betting_round(start_from="SB")
+
+        self._deal_river()
+        self._betting_round(start_from="SB")
+
+        winners = self._determine_winner()
+
+        return winners
+
+    def show_current_situation(self):
+        print(f"\nКарты на столе: {self.table}")
+        
+
+    def _prepare_round(self):
+        """Сбрасывает всё состояние перед новой раздачей."""
+
+        self.table = []
+        self.pot = 0
+        for p in self.game.players:
+            p.reset_for_new_hand()
+
+        self.deck = Deck()
+        self.deck.shuffle()
+
+        # Раздача холд-карт
+        for p in self.game.registered_players:
+            p.add_card(self.deck.dealcard())
+            p.add_card(self.deck.dealcard())
+
+
+    def _post_blinds(self):
+        """Ставит малый и большой блайнд согласно Game.blind_index."""
+
+        sb_player = self.game.get_small_blind_player()
+        bb_player = self.game.get_big_blind_player()
+
+        sb_pm = self.pm[sb_player]
+        bb_pm = self.pm[bb_player]
+
+        sb_amount = self.game.min_bet // 2
+        bb_amount = self.game.min_bet
+
+        sb_pm.apply_bet(sb_amount)
+        bb_pm.apply_bet(bb_amount)
+
+        sb_player.set_decision("sb")
+        bb_player.set_decision("bb")
+
+        self.pot += sb_amount + bb_amount
+
+        self.current_bet = bb_amount
+
+
+    def _betting_round(self, start_from="SB"):
+        """
+        Один круг ставок.
+        start_from:
+            "UTG" — сразу после BB (префлоп)
+            "SB" — с малого блайнда (флоп/терн/ривер)
+        """
+
+        active_players = self.game.players
+        if len(active_players) <= 1:
+            return
+
+        order = self._betting_order(start_from)
+        players_to_act = set(order)
+
+        while players_to_act:
+            for player in order:
+                if player not in players_to_act:
+                    continue
+                if not player.in_hand:
+                    players_to_act.remove(player)
+                    continue
+
+                pm = self.pm[player]
+
+                self.show_current_situation()
+                decision = pm.ask_player_for_decision(
+                    current_bet=self.current_bet,
+                    min_raise=self.game.min_bet
+                )
+
+                if player.decision == "fold":
+                    pm.fold()
+                    players_to_act.remove(player)
+                    print(pm.player)
+                    continue
+
+                if player.decision == "call":
+                    needed = self.current_bet
+                    pm.call(needed)
+                    self.pot += needed - player.bet + player.bet  # проще: пересчитаем в конце
+                    players_to_act.remove(player)
+                    print(pm.player)
+                    continue
+
+                if player.decision == "raise":
+                    raise_amount = self.current_bet + self.game.min_bet
+                    pm.raise_bet(raise_amount - player.bet)
+                    self.current_bet = raise_amount
+
+                    # при рейзе — обновляется список всех игроков, кто должен ответить
+                    players_to_act = set(order)
+                    players_to_act.remove(player)
+                    print(pm.player)
+                    continue
+
+            # Проверяем: остался только один игрок?
+            still_in = [p for p in self.game.players if p.in_hand]
+            if len(still_in) <= 1:
+                break
+
+
+    def _betting_order(self, start_from):
+        """Создаёт порядок игроков для ставок."""
+
+        players = self.game.players
+        sb_index = self.game.blind_index
+        bb_index = (sb_index + 1) % len(players)
+
+        if start_from == "UTG":
+            start = (bb_index + 1) % len(players)
+        else:
+            start = sb_index
+
+        order = players[start:] + players[:start]
+        print(f"Порядок: {order}")
+        return [p for p in order if p.in_hand]
+
+
+    def _deal_flop(self):
+        self.deck.burn()
+        self.table = [self.deck.dealcard(), self.deck.dealcard(), self.deck.dealcard()]
+        self._update_best_hands()
+
+    def _deal_turn(self):
+        self.deck.burn()
+        self.table.append(self.deck.dealcard())
+        self._update_best_hands()
+
+    def _deal_river(self):
+        self.deck.burn()
+        self.table.append(self.deck.dealcard())
+        self._update_best_hands()
+
+    def _update_best_hands(self):
+        for p in self.game.players:
+            if p.in_hand:
+                self.pm[p].update_best_hand(self.table)
+
+    def _determine_winner(self):
+        """Находит победителя одной раздачи."""
+
+        active_players = [p for p in self.game.players if p.in_hand]
+
+        if len(active_players) == 1:
+            return active_players
+
+        # сравнение best_hand — предполагаем, что best_hand = список значений
+        active_players.sort(key=lambda p: p.best_hand, reverse=True)
+
+        best = active_players[0].best_hand
+        winners = [p for p in active_players if p.best_hand == best]
+
+        return winners

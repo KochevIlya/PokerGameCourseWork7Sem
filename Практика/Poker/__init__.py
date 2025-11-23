@@ -5,3 +5,5 @@ from .Player import *
 from .poker_hands import *
 from .poker_rules import *
 from .poker_stats import *
+from .PlayerManager import *
+from .GameManager import *

@@ -1,90 +1,67 @@
-from itertools import combinations
-from .poker_rules import best_hand, categorize_hand
-desicions = {
-            1 : "fold",
-            2 : "call",
-            3 : "raise"
-        }
-
 class Player:
-    def __init__(self, name="Player", stack=100, min_bet=10):
+    """
+    Игрок хранит только данные:
+    - имя
+    - стек
+    - карты на руках
+    - участие в раздаче
+    - ставка
+    - лучшая комбинация
+    """
+
+    def __init__(self, name="Player", stack=100):
         self.name = str(name)
-        self._holeCards = []
         self.stack = stack
+
+        self.hole_cards = []
+        self.best_hand = None
         self.in_hand = False
         self.bet = 0
-        self.desicion = ""
-        self._bestHand = None
+        self.decision = None
 
-    def __str__(self):
-        if not self._bestHand:
-            return self.name + ":" + str(self._holeCards)
-        else:
-            return self.name + ":" + str(self._bestHand) + "," + categorize_hand(self._bestHand)
-        
-    def __repr__(self):
-        return str(self)
-
-    def ask_player(self):
-        print(f'Ваши карты: {self._holeCards}, лучшая комбинация: {self._bestHand} вы поставили {self.bet}')
-        
-        print(f'Сделайте выбор:')
-        for desicion in desicions:
-            print(desicion)
-        desicion = int(input())
-        self.make_decision(desicion)
 
     def reset_for_new_hand(self):
-        self._holeCards = []
-        self._bestHand = None
+        """Полное обновление состояния для новой раздачи."""
+        self.hole_cards = []
+        self.best_hand = None
         self.in_hand = False
         self.bet = 0
-        self.desicion = ""
+        self.decision = None
 
-    def add_card(self, c):
-        if len(self._holeCards) < 2:
-            self._holeCards.append(c)
-        else:
+    def add_card(self, card):
+        """Добавить карту игроку."""
+        if len(self.hole_cards) >= 2:
             raise ValueError("Player can only have two hole cards")
-        if(len(self._holeCards == 2)):
-            self._bestHand = "HighCard"
+        self.hole_cards.append(card)
+        if len(self.hole_cards) == 2:
             self.in_hand = True
 
-    def make_decision(self, desicion, desicions):
-        self.desicion = desicions[desicion]
+    def set_best_hand(self, hand):
+        self.best_hand = hand
 
+    def set_decision(self, decision):
+        self.decision = decision
 
-    def update_best_hand(self, table):
-        
-        if len(table) < 3:
-            self._bestHand = "HighCard"
-            return self._bestHand
-        if len(table) >= 3:
-            lst_hands = [list(combo) for combo in combinations(self._holeCards + table, 5)]
-            self._bestHand = best_hand(lst_hands)
-            self._bestHand.sort(reverse=True)
-            return self._bestHand    
+    def get_holecards_notation(self):
+        """Возвращает покерную нотацию ('AKs', 'TT', 'QJo')."""
+        if len(self.hole_cards) < 2:
+            return None
 
-    def get_holecards(self):
-        return self._holeCards
+        cards = sorted(self.hole_cards, reverse=True)
+        value_str = cards[0].value + cards[1].value
 
-    def get_best_hand(self):
-        if not self._bestHand:
-            raise ValueError("Best hand undetermiend. Call update_best_hand")
-        return self._bestHand
+        if cards[0].value == cards[1].value:
+            return value_str  
 
-    def get_desicion(self):
-        return self.desicion
+        suited = "s" if cards[0].suite == cards[1].suite else "o"
+        return value_str + suited
 
-    def get_holecards_pokernotation(self):
-        
-        self._holeCards.sort(reverse=True)
-        poker_notation = self._holeCards[0].value + self._holeCards[1].value
-        if poker_notation[0] == poker_notation[1]:
-            return poker_notation
-        else:
-            if self._holeCards[0].suite == self._holeCards[1].suite:
-                poker_notation = poker_notation + "s"
-            else:
-                poker_notation = poker_notation + "o"
-            return poker_notation
+    def __str__(self):
+        return f"{self.name}: hole={self.hole_cards}, best={self.best_hand}"
+
+    def __repr__(self):
+        return str(self)
+    
+    def add_stack(self, stack):
+        self.stack += stack;
+    
