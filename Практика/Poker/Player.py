@@ -42,6 +42,9 @@ class Player:
     def set_decision(self, decision):
         self.decision = decision
 
+    def get_stack(self):
+        return self.stack
+
     def get_holecards_notation(self):
         """Возвращает покерную нотацию ('AKs', 'TT', 'QJo')."""
         if len(self.hole_cards) < 2:

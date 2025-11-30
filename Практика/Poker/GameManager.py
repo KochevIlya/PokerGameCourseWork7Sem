@@ -1,6 +1,7 @@
 from .Deck import Deck
 from .PlayerManager import PlayerManager
-
+from .Game import Game
+from .Player import Player
 
 class GameManager:
     """
@@ -13,12 +14,12 @@ class GameManager:
     - определением победителя
     """
 
-    def __init__(self, game):
+    def __init__(self, game: Game):
         """
         game                — объект Game
         """
         self.game = game
-
+        self.current_bet = 0.0
         # Менеджеры на каждого игрока
         self.pm = {
             player: PlayerManager(player)
@@ -26,7 +27,7 @@ class GameManager:
         }
 
         self.table = []
-        self.pot = 0
+        self.pot = 0.0
 
 
     def start_round(self):
@@ -50,9 +51,22 @@ class GameManager:
         self._deal_river()
         self._betting_round(start_from="SB")
 
+
         winners = self._determine_winner()
 
+        self.winners_distribution(winners)
+
+        self.game.next_blinds()
+
         return winners
+
+    def winners_distribution(self, winners: list[Player]):
+
+        for winner in winners:
+            winner.add_stack(self.pot / len(winners))
+
+
+
 
     def show_current_situation(self):
         print(f"\nКарты на столе: {self.table}")
@@ -62,12 +76,14 @@ class GameManager:
         """Сбрасывает всё состояние перед новой раздачей."""
 
         self.table = []
-        self.pot = 0
+        self.pot = 0.0
         for p in self.game.players:
             p.reset_for_new_hand()
 
         self.deck = Deck()
         self.deck.shuffle()
+
+        self.game.reset_betting_players()
 
         # Раздача холд-карт
         for p in self.game.registered_players:
@@ -97,6 +113,8 @@ class GameManager:
 
         self.current_bet = bb_amount
 
+        
+
 
     def _betting_round(self, start_from="SB"):
         """
@@ -106,7 +124,7 @@ class GameManager:
             "SB" — с малого блайнда (флоп/терн/ривер)
         """
 
-        active_players = self.game.players
+        active_players = self.game.betting_players
         if len(active_players) <= 1:
             return
 
@@ -117,6 +135,8 @@ class GameManager:
             for player in order:
                 if player not in players_to_act:
                     continue
+                if self.game.active_players_count() == 1:
+                    continue
                 if not player.in_hand:
                     players_to_act.remove(player)
                     continue
@@ -124,7 +144,7 @@ class GameManager:
                 pm = self.pm[player]
 
                 self.show_current_situation()
-                decision = pm.ask_player_for_decision(
+                decision = pm.ask_decision(
                     current_bet=self.current_bet,
                     min_raise=self.game.min_bet
                 )
@@ -132,13 +152,14 @@ class GameManager:
                 if player.decision == "fold":
                     pm.fold()
                     players_to_act.remove(player)
+                    self.game.remove_player_betting_round(player)
                     print(pm.player)
                     continue
 
                 if player.decision == "call":
                     needed = self.current_bet
-                    pm.call(needed)
-                    self.pot += needed - player.bet + player.bet  # проще: пересчитаем в конце
+                    needed = pm.call(needed)
+                    self.pot += needed
                     players_to_act.remove(player)
                     print(pm.player)
                     continue
@@ -147,7 +168,7 @@ class GameManager:
                     raise_amount = self.current_bet + self.game.min_bet
                     pm.raise_bet(raise_amount - player.bet)
                     self.current_bet = raise_amount
-
+                    self.pot += raise_amount
                     # при рейзе — обновляется список всех игроков, кто должен ответить
                     players_to_act = set(order)
                     players_to_act.remove(player)
@@ -155,15 +176,15 @@ class GameManager:
                     continue
 
             # Проверяем: остался только один игрок?
-            still_in = [p for p in self.game.players if p.in_hand]
-            if len(still_in) <= 1:
+            still_in = self.game.active_players_count()
+            if still_in <= 1:
                 break
 
 
     def _betting_order(self, start_from):
         """Создаёт порядок игроков для ставок."""
 
-        players = self.game.players
+        players = self.game.betting_players
         sb_index = self.game.blind_index
         bb_index = (sb_index + 1) % len(players)
 
@@ -200,7 +221,7 @@ class GameManager:
     def _determine_winner(self):
         """Находит победителя одной раздачи."""
 
-        active_players = [p for p in self.game.players if p.in_hand]
+        active_players = self.game.betting_players
 
         if len(active_players) == 1:
             return active_players
@@ -210,5 +231,7 @@ class GameManager:
 
         best = active_players[0].best_hand
         winners = [p for p in active_players if p.best_hand == best]
+
+
 
         return winners

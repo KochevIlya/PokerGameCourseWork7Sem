@@ -12,6 +12,7 @@ class Game:
         self.min_bet = min_bet
         self.registered_players = players[:] if players else []
         self.players = self.registered_players.copy()
+        self.betting_players = self.players.copy()
         self.blind_index = 0
         self.manager = None
 
@@ -20,6 +21,18 @@ class Game:
         """Добавляет нового игрока в список зарегистрированных."""
         self.registered_players.append(player)
         self.players.append(player)
+        self.betting_players.append(player)
+
+    def reset_betting_players(self):
+        for player in self.players:
+            if player.get_stack() <= 0:
+                self.players.remove(player)
+        
+        self.betting_players = self.players.copy()
+
+    def remove_player_betting_round(self, player):
+        if player in self.betting_players:
+            self.betting_players.remove(player)
 
     def remove_player(self, player):
         """Удаляет игрока из игры и текущей раздачи."""
@@ -27,30 +40,31 @@ class Game:
             self.registered_players.remove(player)
         if player in self.players:
             self.players.remove(player)
+        self.remove_player_betting_round(player)
 
     def active_players_count(self):
         """Количество игроков, которые ещё участвуют в раздаче."""
-        return len(self.players)
+        return len(self.betting_players)
 
     def next_blinds(self):
         """Переходит к следующему кругу блайндов."""
-        if not self.registered_players:
+        if not self.players:
             return
-        self.blind_index = (self.blind_index + 1) % len(self.registered_players)
+        self.blind_index = (self.blind_index + 1) % len(self.players)
 
     def get_small_blind_player(self):
-        if not self.registered_players:
+        if not self.players:
             return None
-        return self.registered_players[self.blind_index]
+        return self.players[self.blind_index]
 
     def get_big_blind_player(self):
-        if not self.registered_players:
+        if not self.players:
             return None
-        big_idx = (self.blind_index + 1) % len(self.registered_players)
-        return self.registered_players[big_idx]
+        big_idx = (self.blind_index + 1) % len(self.players)
+        return self.players[big_idx]
 
     def __str__(self):
-        players = [str(p) for p in self.registered_players]
+        players = [str(p) for p in self.players]
         sb = self.get_small_blind_player()
         bb = self.get_big_blind_player()
 

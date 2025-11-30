@@ -22,7 +22,7 @@ class PlayerManager:
         self.player = player
 
 
-    def ask_player_for_decision(self, current_bet, min_raise):
+    def ask_decision(self, current_bet, min_raise):
         """
         Спрашивает решение у пользователя.
         Вызывается из GameManager.
@@ -71,7 +71,7 @@ class PlayerManager:
         """
         Делает ставку: уменьшает стек, увеличивает bet.
         """
-        if amount > self.player.stack:
+        if amount > self.get_stack():
             raise ValueError("Bet exceeds player's stack")
 
         self.player.stack -= amount
@@ -87,10 +87,12 @@ class PlayerManager:
         to_call = amount - self.player.bet
         self.apply_bet(to_call)
         self.player.set_decision("call")
+        return to_call
 
     def raise_bet(self, amount):
         """Игрок делает рейз."""
-        self.apply_bet(amount)
+        to_raise = amount - self.player.bet
+        self.apply_bet(to_raise)
         self.player.set_decision("raise")
 
 
@@ -107,7 +109,7 @@ class PlayerManager:
         return self.player.decision
 
     def get_stack(self):
-        return self.player.stack
+        return self.player.get_stack()
 
     def get_player(self):
         return self.player
