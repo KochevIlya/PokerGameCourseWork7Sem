@@ -4,6 +4,7 @@ ACTIONS = ['fold', 'call', 'raise']
 RAISE_AMOUNT = 10  
 
 
+
 category_funcs = (is_royal_flush,
                  is_straight_flush,
                  is_fourkind,

@@ -1,6 +1,6 @@
 import random
-from Poker import *
-
+from .Player import Player
+from .ranking_cards import poker_strength
 
 class SimpleGeneticBot(Player):
     

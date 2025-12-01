@@ -1,7 +1,10 @@
+
 from .Deck import Deck
 from .PlayerManager import PlayerManager
 from .Game import Game
 from .Player import Player
+from .BotManager import BotManager
+from .bot import SimpleGeneticBot
 
 class GameManager:
     """
@@ -21,10 +24,12 @@ class GameManager:
         self.game = game
         self.current_bet = 0.0
         # Менеджеры на каждого игрока
-        self.pm = {
-            player: PlayerManager(player)
-            for player in self.game.players
-        }
+        self.pm = dict()
+        for player in self.game.players:
+            if isinstance(player, SimpleGeneticBot):
+                self.pm[player] = BotManager(player)
+            else:
+                self.pm[player] = PlayerManager(player)
 
         self.table = []
         self.pot = 0.0
@@ -105,11 +110,11 @@ class GameManager:
 
         sb_pm.apply_bet(sb_amount)
         bb_pm.apply_bet(bb_amount)
+        self.pot += sb_amount + bb_amount
 
         sb_player.set_decision("sb")
         bb_player.set_decision("bb")
 
-        self.pot += sb_amount + bb_amount
 
         self.current_bet = bb_amount
 
@@ -144,11 +149,18 @@ class GameManager:
                 pm = self.pm[player]
 
                 self.show_current_situation()
-                decision = pm.ask_decision(
-                    current_bet=self.current_bet,
-                    min_raise=self.game.min_bet
-                )
+                if  isinstance(pm, BotManager):
+                    pm.ask_decision(
+                        current_bet=self.current_bet,
+                        min_raise=self.game.min_bet,
+                        community_cards=self.table.copy()
+                    )
 
+                elif isinstance(pm, PlayerManager):
+                    pm.ask_decision(
+                        current_bet=self.current_bet,
+                        min_raise=self.game.min_bet
+                    )
                 if player.decision == "fold":
                     pm.fold()
                     players_to_act.remove(player)
@@ -158,17 +170,17 @@ class GameManager:
 
                 if player.decision == "call":
                     needed = self.current_bet
-                    needed = pm.call(needed)
-                    self.pot += needed
+                    to_call = pm.call(needed)
+                    self.pot += to_call
                     players_to_act.remove(player)
                     print(pm.player)
                     continue
 
                 if player.decision == "raise":
                     raise_amount = self.current_bet + self.game.min_bet
-                    pm.raise_bet(raise_amount - player.bet)
+                    to_raise = pm.raise_bet(raise_amount)
                     self.current_bet = raise_amount
-                    self.pot += raise_amount
+                    self.pot += to_raise
                     # при рейзе — обновляется список всех игроков, кто должен ответить
                     players_to_act = set(order)
                     players_to_act.remove(player)

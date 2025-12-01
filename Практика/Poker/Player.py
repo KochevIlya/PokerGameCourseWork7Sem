@@ -16,7 +16,7 @@ class Player:
         self.hole_cards = []
         self.best_hand = None
         self.in_hand = False
-        self.bet = 0
+        self.bet = 0.0
         self.decision = None
 
 
@@ -25,7 +25,7 @@ class Player:
         self.hole_cards = []
         self.best_hand = None
         self.in_hand = False
-        self.bet = 0
+        self.bet = 0.0
         self.decision = None
 
     def add_card(self, card):

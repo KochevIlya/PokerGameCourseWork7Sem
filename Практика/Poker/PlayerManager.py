@@ -94,6 +94,7 @@ class PlayerManager:
         to_raise = amount - self.player.bet
         self.apply_bet(to_raise)
         self.player.set_decision("raise")
+        return to_raise
 
 
     def is_active(self):
