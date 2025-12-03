@@ -45,6 +45,9 @@ class Player:
     def get_stack(self):
         return self.stack
 
+    def get_bet(self):
+        return self.bet
+
     def get_holecards_notation(self):
         """Возвращает покерную нотацию ('AKs', 'TT', 'QJo')."""
         if len(self.hole_cards) < 2:
@@ -66,5 +69,5 @@ class Player:
         return str(self)
     
     def add_stack(self, stack):
-        self.stack += stack;
+        self.stack += stack
     

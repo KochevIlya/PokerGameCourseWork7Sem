@@ -70,31 +70,42 @@ class PlayerManager:
     def apply_bet(self, amount):
         """
         Делает ставку: уменьшает стек, увеличивает bet.
-        """
-        if amount > self.get_stack():
-            raise ValueError("Bet exceeds player's stack")
-
+"""
+        amount = min(amount, self.player.stack)
         self.player.stack -= amount
         self.player.bet += amount
+        return amount
 
     def fold(self):
         """Игрок пасует."""
         self.player.in_hand = False
         self.player.set_decision("fold")
 
+    def all_in(self):
+        amount = self.player.stack
+        amount = self.apply_bet(amount)
+        return amount
+
     def call(self, amount):
         """Игрок уравнивает ставку."""
         to_call = amount - self.player.bet
-        self.apply_bet(to_call)
+        to_call = self.apply_bet(to_call)
         self.player.set_decision("call")
         return to_call
 
     def raise_bet(self, amount):
         """Игрок делает рейз."""
         to_raise = amount - self.player.bet
-        self.apply_bet(to_raise)
+        to_raise = self.apply_bet(to_raise)
         self.player.set_decision("raise")
         return to_raise
+
+    def can_apply(self, amount):
+        if self.player.get_stack()  + self.player.get_bet() <  amount:
+            return False
+        return True
+
+
 
 
     def is_active(self):

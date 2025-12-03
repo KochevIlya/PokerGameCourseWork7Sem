@@ -161,6 +161,9 @@ class GameManager:
                         current_bet=self.current_bet,
                         min_raise=self.game.min_bet
                     )
+
+
+
                 if player.decision == "fold":
                     pm.fold()
                     players_to_act.remove(player)
@@ -168,24 +171,38 @@ class GameManager:
                     print(pm.player)
                     continue
 
-                if player.decision == "call":
-                    needed = self.current_bet
-                    to_call = pm.call(needed)
-                    self.pot += to_call
-                    players_to_act.remove(player)
-                    print(pm.player)
-                    continue
-
                 if player.decision == "raise":
-                    raise_amount = self.current_bet + self.game.min_bet
-                    to_raise = pm.raise_bet(raise_amount)
-                    self.current_bet = raise_amount
-                    self.pot += to_raise
-                    # при рейзе — обновляется список всех игроков, кто должен ответить
-                    players_to_act = set(order)
-                    players_to_act.remove(player)
-                    print(pm.player)
-                    continue
+
+                    needed = self.current_bet + self.game.min_bet
+
+                    if not pm.can_apply(needed):
+                        player.set_decision("call")
+
+                    else:
+                        to_raise = pm.raise_bet(needed)
+                        self.current_bet += self.game.min_bet
+                        self.pot += to_raise
+
+                        players_to_act = set(order)
+                        players_to_act.remove(player)
+                        print(pm.player)
+                        continue
+
+                if player.decision == "call":
+
+                    needed = self.current_bet
+                    if pm.can_apply(needed):
+                        to_call = pm.call(needed)
+                        self.pot += to_call
+                        players_to_act.remove(player)
+                        print(pm.player)
+
+                    else:
+                        to_amount = pm.all_in()
+                        self.pot += to_amount
+
+                        print(pm.player)
+
 
             # Проверяем: остался только один игрок?
             still_in = self.game.active_players_count()
