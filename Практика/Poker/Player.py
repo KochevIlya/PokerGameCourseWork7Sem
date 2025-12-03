@@ -63,7 +63,7 @@ class Player:
         return value_str + suited
 
     def __str__(self):
-        return f"{self.name}: hole={self.hole_cards}, best={self.best_hand}"
+        return f"{self.name}: hole={self.hole_cards}, best={self.best_hand}, stack={self.get_stack()}"
 
     def __repr__(self):
         return str(self)

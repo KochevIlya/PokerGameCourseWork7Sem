@@ -34,12 +34,26 @@ class GameManager:
         self.table = []
         self.pot = 0.0
 
+    def start_game(self, num_rounds):
+        for i in range(num_rounds):
+            self._prepare_round()
+            self.game.next_blinds()
+
+            if (len(self.game.players) <= 1):
+                print(f"Game is over, because of the players amount")
+                self.game.registered_players.sort(key=lambda p: p.stack, reverse=True)
+                return self.game.registered_players
+            else:
+                print(f'\033[32mВыигрывает(ют): {self.start_round()}\033[0m\n')
+        print(f"Game is over, because of the rounds amount")
+        self.game.registered_players.sort(key=lambda p: p.stack, reverse=True)
+        return self.game.registered_players
+
 
     def start_round(self):
         """
         Основной игровой цикл одной раздачи.
         """
-        self._prepare_round()
 
         self._post_blinds()
         
@@ -61,7 +75,6 @@ class GameManager:
 
         self.winners_distribution(winners)
 
-        self.game.next_blinds()
 
         return winners
 
@@ -91,7 +104,7 @@ class GameManager:
         self.game.reset_betting_players()
 
         # Раздача холд-карт
-        for p in self.game.registered_players:
+        for p in self.game.players:
             p.add_card(self.deck.dealcard())
             p.add_card(self.deck.dealcard())
 
@@ -200,11 +213,10 @@ class GameManager:
                     else:
                         to_amount = pm.all_in()
                         self.pot += to_amount
-
+                        players_to_act.remove(player)
                         print(pm.player)
 
 
-            # Проверяем: остался только один игрок?
             still_in = self.game.active_players_count()
             if still_in <= 1:
                 break

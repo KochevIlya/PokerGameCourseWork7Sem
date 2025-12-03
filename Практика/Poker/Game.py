@@ -13,7 +13,7 @@ class Game:
         self.registered_players = players[:] if players else []
         self.players = self.registered_players.copy()
         self.betting_players = self.players.copy()
-        self.blind_index = 0
+        self.blind_index = -1
         self.manager = None
 
 
