@@ -15,7 +15,7 @@ class Game:
         self.betting_players = self.players.copy()
         self.blind_index = -1
         self.manager = None
-
+        self.looses_list = list()
 
     def add_player(self, player):
         """Добавляет нового игрока в список зарегистрированных."""
@@ -27,6 +27,7 @@ class Game:
         for player in self.players:
             if player.get_stack() <= 0:
                 self.players.remove(player)
+                self.looses_list.append(player)
         
         self.betting_players = self.players.copy()
 

@@ -21,7 +21,7 @@ class BotManager(PlayerManager):
 
         if score > 0.8:
             self.player.decision = "raise"
-        elif score > 0.4:
+        elif score > 0.3:
             self.player.decision = "call"
         else:
             self.player.decision = "fold"

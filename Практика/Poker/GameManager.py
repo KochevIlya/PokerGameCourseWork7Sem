@@ -35,7 +35,7 @@ class GameManager:
         self.pot = 0.0
 
     def start_game(self, num_rounds):
-        for i in range(num_rounds):
+        for _ in range(num_rounds):
             self._prepare_round()
             self.game.next_blinds()
 
@@ -121,15 +121,15 @@ class GameManager:
         sb_amount = self.game.min_bet // 2
         bb_amount = self.game.min_bet
 
-        sb_pm.apply_bet(sb_amount)
-        bb_pm.apply_bet(bb_amount)
+        sb_amount = sb_pm.apply_bet(sb_amount)
+        bb_amount = bb_pm.apply_bet(bb_amount)
         self.pot += sb_amount + bb_amount
 
         sb_player.set_decision("sb")
         bb_player.set_decision("bb")
 
 
-        self.current_bet = bb_amount
+        self.current_bet = max(bb_amount, sb_amount)
 
         
 
