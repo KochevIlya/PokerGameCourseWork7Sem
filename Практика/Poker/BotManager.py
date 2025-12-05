@@ -11,7 +11,7 @@ class BotManager(PlayerManager):
         hand_strength = self.player.evaluate_hand_strength(self.player.hole_cards, community_cards)
         bluff_rand = random.random()
         
-        score = self.player.genome[0] * hand_strength + self.player.genome[1] * bluff_rand - self.player.genome[2] * current_bet / (current_bet + self.player.get_stack())
+        score = self.player.genome[0] * hand_strength + self.player.genome[1] * bluff_rand + (1/len(self.player.genome) - self.player.genome[2] * current_bet / (current_bet + self.player.get_stack()))
 
         print(f"\nИгрок {self.player.name}")
         print(f"Ваши карты: {self.player.hole_cards}")

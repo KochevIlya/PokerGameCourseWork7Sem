@@ -25,11 +25,11 @@ class SimpleGeneticBot(Player):
         hand_strength = self.evaluate_hand_strength(hand, community_cards)
         bluff_rand = random.random()
         
-        score = self.genome[0] * hand_strength + self.genome[1] * bluff_rand - self.genome[2] * self.game_bet / (self.game_bet + self.stack)
+        score = self.genome[0] * hand_strength + self.genome[1] * bluff_rand + (1 - self.genome[2] * self.game_bet / (self.game_bet + self.stack))
      
-        if score > 0.8:
+        if score > 0.6:
             return 'raise'
-        elif score > 0.4:
+        elif score > 0.3:
             return 'call'
         else:
             return 'fold'
