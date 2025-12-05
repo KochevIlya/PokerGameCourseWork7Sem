@@ -1,0 +1,141 @@
+Generation 0:
+First: hole=[], best=None, stack=100
+ genome: [0.16786067582934916, 0.05, 0.8]
+Generation 1:
+First: hole=[], best=None, stack=100
+ genome: [0.8, 0.1, 0.1]
+Generation 2:
+First: hole=[], best=None, stack=100
+ genome: [0.2, 0.6, 0.2]
+Generation 3:
+First: hole=[], best=None, stack=100
+ genome: [0.2, 0.6, 0.2]
+Generation 4:
+First: hole=[], best=None, stack=100
+ genome: [0.1687530913506805, 0.084375, 0.7625000000000001]
+Generation 5:
+First: hole=[], best=None, stack=100
+ genome: [0.19196516895733728, 0.4625, 0.3074997847335976]
+Generation 6:
+First: hole=[], best=None, stack=100
+ genome: [0.18415344179500742, 0.33359375, 0.46937489236679886]
+Generation 7:
+First: hole=[], best=None, stack=100
+ genome: [0.2, 0.6, 0.2]
+Generation 8:
+First: hole=[], best=None, stack=100
+ genome: [0.18934253910692125, 0.42375564762564466, 0.38984375000000004]
+Generation 9:
+First: hole=[], best=None, stack=100
+ genome: [0.18203298888475777, 0.302332690188467, 0.5184374865458499]
+Generation 10:
+First: hole=[], best=None, stack=100
+ genome: [0.17497452713267753, 0.20878368875489933, 0.643671854818775]
+Generation 11:
+First: hole=[], best=None, stack=100
+ genome: [0.17521864360650036, 0.1892349280637893, 0.6386132577052374]
+Generation 12:
+First: hole=[], best=None, stack=100
+ genome: [0.17607305126488018, 0.20347285633718654, 0.6242284971255436]
+Generation 13:
+First: hole=[], best=None, stack=100
+ genome: [0.1756772334944507, 0.19689100157548792, 0.6310009563812748]
+Generation 14:
+First: hole=[], best=None, stack=100
+ genome: [0.17544881005000806, 0.19604366928102737, 0.6350195106483327]
+Generation 15:
+First: hole=[], best=None, stack=100
+ genome: [0.2, 0.6, 0.2]
+Generation 0:
+First: hole=[], best=None, stack=100
+ genome: [0.8, 0.1, 0.1]
+Generation 0:
+First: hole=[], best=None, stack=100
+ genome: [0.15, 0.05, 0.8]
+Generation 1:
+First: hole=[], best=None, stack=100
+ genome: [0.175, 0.325, 0.5]
+Generation 2:
+First: hole=[], best=None, stack=100
+ genome: [0.175, 0.325, 0.5]
+Generation 3:
+First: hole=[], best=None, stack=100
+ genome: [0.175, 0.325, 0.5]
+Generation 4:
+First: hole=[], best=None, stack=100
+ genome: [0.2, 0.6, 0.2]
+Generation 5:
+First: hole=[], best=None, stack=100
+ genome: [0.1875, 0.4625, 0.35]
+Generation 6:
+First: hole=[], best=None, stack=100
+ genome: [0.18125, 0.39375000000000004, 0.425]
+Generation 7:
+First: hole=[], best=None, stack=100
+ genome: [0.2, 0.6, 0.2]
+Generation 8:
+First: hole=[], best=None, stack=100
+ genome: [0.2, 0.6, 0.2]
+Generation 0:
+First: hole=[], best=None, stack=100
+ genome: [0.2, 0.6, 0.2]
+Generation 0:
+First: hole=[], best=None, stack=100
+ genome: [0.8, 0.1, 0.1]
+Generation 1:
+First: hole=[], best=None, stack=100
+ genome: [0.8, 0.1, 0.1]
+Generation 2:
+First: hole=[], best=None, stack=100
+ genome: [0.7755463013879808, 0.1, 0.1]
+Generation 3:
+First: hole=[], best=None, stack=100
+ genome: [0.7997124154198977, 0.136319509613681, 0.1673683191225337]
+Generation 4:
+First: hole=[], best=None, stack=100
+ genome: [0.7997124154198977, 0.136319509613681, 0.1673683191225337]
+Generation 5:
+First: hole=[], best=None, stack=100
+ genome: [0.7853866899327542, 0.136319509613681, 0.1761830677654947]
+Generation 6:
+First: hole=[], best=None, stack=100
+ genome: [0.7853866899327542, 0.136319509613681, 0.1761830677654947]
+Generation 7:
+First: hole=[], best=None, stack=100
+ genome: [0.8781928429810564, 0.19282787947783325, 0.1265466865457457]
+Generation 8:
+First: hole=[], best=None, stack=100
+ genome: [0.8781928429810564, 0.19282787947783325, 0.1265466865457457]
+Generation 9:
+First: hole=[], best=None, stack=100
+ genome: [0.8781928429810564, 0.19282787947783325, 0.09077916592251284]
+Generation 10:
+First: hole=[], best=None, stack=100
+ genome: [0.8781928429810564, 0.19282787947783325, 0.09077916592251284]
+Generation 11:
+First: hole=[], best=None, stack=100
+ genome: [0.8781928429810564, 0.19282787947783325, 0.09077916592251284]
+Generation 12:
+First: hole=[], best=None, stack=100
+ genome: [0.8514531546927014, 0.1450685089207797, 0.213529950895338]
+Generation 13:
+First: hole=[], best=None, stack=100
+ genome: [0.9308383976048867, 0.13557357894290298, 0.213529950895338]
+Generation 14:
+First: hole=[], best=None, stack=100
+ genome: [0.9308383976048867, 0.13557357894290298, 0.22288831282636748]
+Generation 15:
+First: hole=[], best=None, stack=100
+ genome: [0.9308383976048867, 0.13557357894290298, 0.22288831282636748]
+Generation 16:
+First: hole=[], best=None, stack=100
+ genome: [0.9308383976048867, 0.13557357894290298, 0.22288831282636748]
+Generation 17:
+First: hole=[], best=None, stack=100
+ genome: [0.9308383976048867, 0.13557357894290298, 0.22288831282636748]
+Generation 18:
+First: hole=[], best=None, stack=100
+ genome: [0.7229392459320698, 0.12242473230297969, 0.15463602176495045]
+Generation 19:
+First: hole=[], best=None, stack=100
+ genome: [0.7229392459320698, 0.12242473230297969, 0.15463602176495045]

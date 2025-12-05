@@ -10,3 +10,4 @@ from .GameManager import GameManager
 from .ranking_cards import poker_strength
 from .bot import SimpleGeneticBot
 from .BotManager import BotManager
+from .BotFabric import BotFabric

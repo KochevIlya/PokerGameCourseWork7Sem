@@ -35,15 +35,19 @@ class GameManager:
         self.pot = 0.0
 
     def start_game(self, num_rounds):
-        for _ in range(num_rounds):
+        for i in range(num_rounds):
+            print(f"Round {i}\n")
+            print(f"{str(self.game)}\n")
             self._prepare_round()
-            self.game.next_blinds()
 
-            if (len(self.game.players) <= 1):
+
+            if len(self.game.players) <= 1:
                 print(f"Game is over, because of the players amount")
                 self.game.registered_players.sort(key=lambda p: p.stack, reverse=True)
                 return self.game.registered_players
             else:
+                self.game.next_blinds()
+                print(f"After preparing: {str(self.game)}\n")
                 print(f'\033[32mВыигрывает(ют): {self.start_round()}\033[0m\n')
         print(f"Game is over, because of the rounds amount")
         self.game.registered_players.sort(key=lambda p: p.stack, reverse=True)

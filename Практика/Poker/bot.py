@@ -12,7 +12,7 @@ class SimpleGeneticBot(Player):
         self.genome = genome
 
     def __str__(self):
-        return(f"{super().__str__()}\n genome: {self.genome}")
+        return(f"{super().__str__()}\n genome: {self.genome}\n")
         
         
     def __repr__(self):
@@ -25,7 +25,7 @@ class SimpleGeneticBot(Player):
         hand_strength = self.evaluate_hand_strength(hand, community_cards)
         bluff_rand = random.random()
         
-        score = self.genome[0] * hand_strength + self.genome[1] * bluff_rand + (1 - self.genome[2] * self.get_bet() / (self.get_bet() + self.stack))
+        score = self.genome[0] * hand_strength + self.genome[1] * bluff_rand + (1 - self.genome[2] * selfget_bet() / (self.get_bet() + self.stack))
      
         if score > 0.6:
             return 'raise'
@@ -34,5 +34,5 @@ class SimpleGeneticBot(Player):
         else:
             return 'fold'
 
-    def get_desicion(self):
-        return self.make_desicion()
+    def get_genome(self):
+        return self.genome

@@ -1,3 +1,4 @@
+import copy
 class Game:
     """
     Game class — отвечает за состояние стола:
@@ -15,7 +16,7 @@ class Game:
         self.betting_players = self.players.copy()
         self.blind_index = -1
         self.manager = None
-        self.looses_list = list()
+        self.loosers_list = list()
 
     def add_player(self, player):
         """Добавляет нового игрока в список зарегистрированных."""
@@ -23,12 +24,12 @@ class Game:
         self.players.append(player)
         self.betting_players.append(player)
 
+    def get_loosers_list(self):
+        return self.loosers_list
     def reset_betting_players(self):
-        for player in self.players:
-            if player.get_stack() <= 0:
-                self.players.remove(player)
-                self.looses_list.append(player)
-        
+
+        self.loosers_list.extend([p for p in self.players if p.get_stack() <= 0.1])
+        self.players = [p for p in self.players if p.get_stack() > 0.1]
         self.betting_players = self.players.copy()
 
     def remove_player_betting_round(self, player):
@@ -37,8 +38,6 @@ class Game:
 
     def remove_player(self, player):
         """Удаляет игрока из игры и текущей раздачи."""
-        if player in self.registered_players:
-            self.registered_players.remove(player)
         if player in self.players:
             self.players.remove(player)
         self.remove_player_betting_round(player)
