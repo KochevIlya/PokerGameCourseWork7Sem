@@ -24,6 +24,8 @@ class Game:
         self.players.append(player)
         self.betting_players.append(player)
 
+    def set_registered_players(self, players):
+        self.registered_players = players
     def get_loosers_list(self):
         return self.loosers_list
     def reset_betting_players(self):
@@ -70,8 +72,8 @@ class Game:
 
         return (
             f"Poker Game State:\n"
-            f"  Registered players: {len(self.registered_players)} → {players}\n"
-            f"  Active in current round: {len(self.players)}\n"
+            f"  Registered players: {len(self.registered_players)} → {self.registered_players}\n"
+            f"  Active in current round: {len(self.players)} -> {self.players}\n"
             f"  Min bet: {self.min_bet}\n"
             f"  SB: {sb}\n"
             f"  BB: {bb}\n"

@@ -1,6 +1,6 @@
 import random
 from .Player import Player
-from .ranking_cards import poker_strength
+from .HandCalculator import *
 
 class SimpleGeneticBot(Player):
     
@@ -12,20 +12,18 @@ class SimpleGeneticBot(Player):
         self.genome = genome
 
     def __str__(self):
-        return(f"{super().__str__()}\n genome: {self.genome}\n")
+        return(f"{super().__str__()} genome: {self.genome}\n")
         
         
     def __repr__(self):
         return str(self)
 
-    def evaluate_hand_strength(self, hand, community_cards):
-        return poker_strength(hand, community_cards, iters=1000 )
 
     def make_decision(self, hand, community_cards, min_call):
-        hand_strength = self.evaluate_hand_strength(hand, community_cards)
+        hand_strength = HandCalculator.evaluate_hand_strength(hand, community_cards)
         bluff_rand = random.random()
         
-        score = self.genome[0] * hand_strength + self.genome[1] * bluff_rand + (1 - self.genome[2] * selfget_bet() / (self.get_bet() + self.stack))
+        score = self.genome[0] * hand_strength + self.genome[1] * bluff_rand + (1 - self.genome[2] * self.get_bet() / (self.get_bet() + self.stack))
      
         if score > 0.6:
             return 'raise'

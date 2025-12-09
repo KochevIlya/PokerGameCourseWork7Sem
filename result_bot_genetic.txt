@@ -139,3 +139,203 @@ First: hole=[], best=None, stack=100
 Generation 19:
 First: hole=[], best=None, stack=100
  genome: [0.7229392459320698, 0.12242473230297969, 0.15463602176495045]
+Generation 0:
+First: hole=[], best=None, stack=100
+ genome: [0.15378890698539716, 0.05, 0.8]
+
+Generation 1:
+First: hole=[], best=None, stack=100
+ genome: [0.15378890698539716, 0.05, 0.8]
+
+Generation 2:
+First: hole=[], best=None, stack=100
+ genome: [0.15378890698539716, 0.05, 0.8]
+
+Generation 3:
+First: hole=[], best=None, stack=100
+ genome: [0.24008414602891714, 0.21718344501949716, 0.5427324089515857]
+
+Generation 4:
+First: hole=[], best=None, stack=100
+ genome: [0.24008414602891714, 0.21718344501949716, 0.5427324089515857]
+
+Generation 5:
+First: hole=[], best=None, stack=100
+ genome: [0.24008414602891714, 0.21718344501949716, 0.5427324089515857]
+
+Generation 6:
+First: hole=[], best=None, stack=100
+ genome: [0.2, 0.6, 0.2]
+
+Generation 7:
+First: hole=[], best=None, stack=100
+ genome: [0.22004207301445858, 0.40859172250974857, 0.3713662044757928]
+
+Generation 8:
+First: hole=[], best=None, stack=100
+ genome: [0.24008414602891714, 0.21718344501949716, 0.5427324089515857]
+
+Generation 9:
+First: hole=[], best=None, stack=100
+ genome: [0.2247013921451702, 0.3595939794216103, 0.4157046284332194]
+
+Generation 10:
+First: hole=[], best=None, stack=100
+ genome: [0.23757888690210982, 0.2411094797057786, 0.5213116333921116]
+
+Generation 11:
+First: hole=[], best=None, stack=100
+ genome: [0.23632625733870616, 0.2530724970489193, 0.5106012456123745]
+
+Generation 12:
+First: hole=[], best=None, stack=100
+ genome: [0.23632625733870616, 0.2192534585557176, 0.5106012456123745]
+
+Generation 13:
+First: hole=[], best=None, stack=100
+ genome: [0.23632625733870616, 0.2192534585557176, 0.5106012456123745]
+
+Generation 14:
+First: hole=[], best=None, stack=100
+ genome: [0.2410282438487427, 0.23414067538762728, 0.52483108076363]
+
+Generation 15:
+First: hole=[], best=None, stack=100
+ genome: [0.23413685032405268, 0.24068468025476208, 0.5251784694211853]
+
+Generation 16:
+First: hole=[], best=None, stack=100
+ genome: [0.23413685032405268, 0.24068468025476208, 0.5251784694211853]
+
+Generation 17:
+First: hole=[], best=None, stack=100
+ genome: [0.23466564776732063, 0.23577752919747372, 0.5295568230352057]
+
+Generation 18:
+First: hole=[], best=None, stack=100
+ genome: [0.23440124904568665, 0.23823110472611791, 0.5273676462281955]
+
+Generation 19:
+First: hole=[], best=None, stack=100
+ genome: [0.23513047387545594, 0.23863989188204815, 0.5262296342424959]
+
+Generation 20:
+First: hole=[], best=None, stack=100
+ genome: [0.23420295000446117, 0.24007128637260106, 0.5257257636229378]
+
+Generation 21:
+First: hole=[], best=None, stack=100
+ genome: [0.23513047387545594, 0.23863989188204815, 0.5262296342424959]
+
+Generation 22:
+First: hole=[], best=None, stack=100
+ genome: [0.2, 0.6, 0.2]
+
+Generation 23:
+First: hole=[], best=None, stack=100
+ genome: [0.2, 0.6, 0.2]
+
+Generation 24:
+First: hole=[], best=None, stack=100
+ genome: [0.23513047387545594, 0.23863989188204815, 0.5262296342424959]
+
+Generation 25:
+First: hole=[], best=None, stack=100
+ genome: [0.23513047387545594, 0.23863989188204815, 0.5262296342424959]
+
+Generation 26:
+First: hole=[], best=None, stack=100
+ genome: [0.23513047387545594, 0.23863989188204815, 0.5262296342424959]
+
+Generation 27:
+First: hole=[], best=None, stack=100
+ genome: [0.22195654617215999, 0.3741499324262801, 0.40389352140155993]
+
+Generation 28:
+First: hole=[], best=None, stack=100
+ genome: [0.22415220078937598, 0.35156492566890807, 0.4242828735417159]
+
+Generation 29:
+First: hole=[], best=None, stack=100
+ genome: [0.22195654617215999, 0.3741499324262801, 0.40389352140155993]
+
+Generation 30:
+First: hole=[], best=None, stack=100
+ genome: [0.22579894175228798, 0.33462617060087907, 0.43957488764683295]
+
+Generation 31:
+First: hole=[], best=None, stack=100
+ genome: [0.2, 0.6, 0.2]
+
+Generation 32:
+First: hole=[], best=None, stack=100
+ genome: [0.22319160189434398, 0.3614458661252583, 0.4153625319803977]
+
+Generation 33:
+First: hole=[], best=None, stack=100
+ genome: [0.217702465351304, 0.41790838301868827, 0.36438915163000773]
+
+Generation 34:
+First: hole=[], best=None, stack=100
+ genome: [0.217702465351304, 0.41790838301868827, 0.36438915163000773]
+
+Generation 35:
+First: hole=[], best=None, stack=100
+ genome: [0.218920367521791, 0.4053807620829585, 0.3756988703952505]
+
+Generation 36:
+First: hole=[], best=None, stack=100
+ genome: [0.21118802082912827, 0.4004460751718911, 0.3883659039989805]
+
+Generation 37:
+First: hole=[], best=None, stack=100
+ genome: [0.21118802082912827, 0.4004460751718911, 0.3883659039989805]
+
+Generation 38:
+First: hole=[], best=None, stack=100
+ genome: [0.21505419417545962, 0.4029134186274248, 0.3820323871971155]
+
+Generation 39:
+First: hole=[], best=None, stack=100
+ genome: [0.21668280530600356, 0.40727899558912406, 0.37603819910487235]
+
+Generation 40:
+First: hole=[], best=None, stack=100
+ genome: [0.21627565252336756, 0.40618760134869925, 0.37753674612793314]
+
+Generation 41:
+First: hole=[], best=None, stack=100
+ genome: [0.21627565252336756, 0.40618760134869925, 0.37753674612793314]
+
+Generation 42:
+First: hole=[], best=None, stack=100
+ genome: [0.21647922891468557, 0.40673329846891165, 0.3767874726164028]
+
+Generation 43:
+First: hole=[], best=None, stack=100
+ genome: [0.2, 0.6, 0.2]
+
+Generation 44:
+First: hole=[], best=None, stack=100
+ genome: [0.2, 0.6, 0.2]
+
+Generation 45:
+First: hole=[], best=None, stack=100
+ genome: [0.2040689131308419, 0.5515469003371748, 0.2443841865319833]
+
+Generation 46:
+First: hole=[], best=None, stack=100
+ genome: [0.2040689131308419, 0.5515469003371748, 0.2443841865319833]
+
+Generation 47:
+First: hole=[], best=None, stack=100
+ genome: [0.20305168484813144, 0.5636601752528811, 0.23328813989898747]
+
+Generation 48:
+First: hole=[], best=None, stack=100
+ genome: [0.20305168484813144, 0.5636601752528811, 0.23328813989898747]
+
+Generation 49:
+First: hole=[], best=None, stack=100
+ genome: [0.20076292121203287, 0.5909150438132202, 0.20832203497474688]
+

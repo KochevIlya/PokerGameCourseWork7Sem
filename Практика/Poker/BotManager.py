@@ -1,5 +1,6 @@
 from .PlayerManager import PlayerManager
 from .bot import SimpleGeneticBot
+from .HandCalculator import *
 import random
 class BotManager(PlayerManager):
     
@@ -8,16 +9,16 @@ class BotManager(PlayerManager):
 
     def ask_decision(self, current_bet, min_raise, community_cards):
 
-        hand_strength = self.player.evaluate_hand_strength(self.player.hole_cards, community_cards)
+        hand_strength = HandCalculator.evaluate_hand_strength(self.player.hole_cards, community_cards)
         bluff_rand = random.random()
         
         score = self.player.genome[0] * hand_strength + self.player.genome[1] * bluff_rand + (1/len(self.player.genome) - self.player.genome[2] * current_bet / (current_bet + self.player.get_stack()))
 
-        print(f"\nИгрок {self.player.name}")
-        print(f"Ваши карты: {self.player.hole_cards}")
-        print(f"Текущая ставка: {self.player.bet}, стек: {self.player.stack}")
-        print(f"На столе ставка {current_bet}. Минимальный рейз: {min_raise}")
-        print(f"Ваша лучшая комбинация: {self.player.best_hand}")
+        # print(f"\nИгрок {self.player.name}")
+        # print(f"Ваши карты: {self.player.hole_cards}")
+        # print(f"Текущая ставка: {self.player.bet}, стек: {self.player.stack}")
+        # print(f"На столе ставка {current_bet}. Минимальный рейз: {min_raise}")
+        # print(f"Ваша лучшая комбинация: {self.player.best_hand}")
 
         if score > 0.8:
             self.player.decision = "raise"

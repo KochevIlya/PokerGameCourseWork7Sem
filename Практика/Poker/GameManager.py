@@ -1,4 +1,4 @@
-
+from .NeuralAgentManager import *
 from .Deck import Deck
 from .PlayerManager import PlayerManager
 from .Game import Game
@@ -28,6 +28,8 @@ class GameManager:
         for player in self.game.players:
             if isinstance(player, SimpleGeneticBot):
                 self.pm[player] = BotManager(player)
+            elif isinstance(player, NeuralAgent):
+                self.pm[player] = NeuralAgentManager(player)
             else:
                 self.pm[player] = PlayerManager(player)
 
@@ -36,13 +38,13 @@ class GameManager:
 
     def start_game(self, num_rounds):
         for i in range(num_rounds):
-            print(f"Round {i}\n")
-            print(f"{str(self.game)}\n")
+            # print(f"Round {i}\n")
+            # print(f"{str(self.game)}\n")
             self._prepare_round()
 
 
             if len(self.game.players) <= 1:
-                print(f"Game is over, because of the players amount")
+                # print(f"Game is over, because of the players amount")
                 self.game.registered_players.sort(key=lambda p: p.stack, reverse=True)
                 return self.game.registered_players
             else:
@@ -61,18 +63,20 @@ class GameManager:
 
         self._post_blinds()
         
-        self._betting_round(start_from="UTG")
+        self._betting_round(stage="preflop")
         
         self._deal_flop()
-        self.show_current_situation()
-        self._betting_round(start_from="SB")
+        # self.show_current_situation()
+
+
+        self._betting_round(stage="flop")
 
         self._deal_turn()
-        self.show_current_situation()
-        self._betting_round(start_from="SB")
+        # self.show_current_situation()
+        self._betting_round(stage="turn")
 
         self._deal_river()
-        self._betting_round(start_from="SB")
+        self._betting_round(stage="river")
 
 
         winners = self._determine_winner()
@@ -84,8 +88,22 @@ class GameManager:
 
     def winners_distribution(self, winners: list[Player]):
 
+        share = self.pot / len(winners)
+
         for winner in winners:
-            winner.add_stack(self.pot / len(winners))
+            winner.add_stack(share)
+
+        for player in self.game.players:
+            pm = self.pm[player]
+            if isinstance(pm, NeuralAgentManager):
+                # Если игрок выиграл, won_amount = share.
+                # Если проиграл, won_amount = 0.
+                amount_won = share if player in winners else 0.0
+
+                # Внутри этого метода посчитается разница (stack_end - stack_start)
+                # И вызовется train_step(done=True)
+                pm.finish_hand(amount_won)
+
 
 
 
@@ -99,8 +117,10 @@ class GameManager:
 
         self.table = []
         self.pot = 0.0
-        for p in self.game.players:
+        for p, pm in self.pm.items():
             p.reset_for_new_hand()
+            if isinstance(pm, NeuralAgentManager):
+                pm.start_new_hand()
 
         self.deck = Deck()
         self.deck.shuffle()
@@ -138,7 +158,7 @@ class GameManager:
         
 
 
-    def _betting_round(self, start_from="SB"):
+    def _betting_round(self, stage="preflop"):
         """
         Один круг ставок.
         start_from:
@@ -150,7 +170,7 @@ class GameManager:
         if len(active_players) <= 1:
             return
 
-        order = self._betting_order(start_from)
+        order = self._betting_order(stage)
         players_to_act = set(order)
 
         while players_to_act:
@@ -165,7 +185,7 @@ class GameManager:
 
                 pm = self.pm[player]
 
-                self.show_current_situation()
+                # self.show_current_situation()
                 if  isinstance(pm, BotManager):
                     pm.ask_decision(
                         current_bet=self.current_bet,
@@ -173,11 +193,23 @@ class GameManager:
                         community_cards=self.table.copy()
                     )
 
+                elif isinstance(pm, NeuralAgentManager):
+                    pm.ask_decision(
+
+                        current_bet=self.current_bet,
+                        min_raise=self.game.min_bet,
+                        community_cards=self.table.copy(),
+                        opponent=self.get_another_player(pm),
+                        stage=stage
+
+                    )
+
                 elif isinstance(pm, PlayerManager):
                     pm.ask_decision(
                         current_bet=self.current_bet,
                         min_raise=self.game.min_bet
                     )
+
 
 
 
@@ -226,14 +258,14 @@ class GameManager:
                 break
 
 
-    def _betting_order(self, start_from):
+    def _betting_order(self, stage):
         """Создаёт порядок игроков для ставок."""
 
         players = self.game.betting_players
         sb_index = self.game.blind_index
         bb_index = (sb_index + 1) % len(players)
 
-        if start_from == "UTG":
+        if stage == "preflop":
             start = (bb_index + 1) % len(players)
         else:
             start = sb_index
@@ -241,6 +273,13 @@ class GameManager:
         order = players[start:] + players[:start]
         print(f"Порядок: {order}")
         return [p for p in order if p.in_hand]
+
+    def get_another_player(self, pm:PlayerManager):
+        for key, value in self.pm.items():
+            if pm == key:
+                continue
+            else:
+                return value
 
 
     def _deal_flop(self):

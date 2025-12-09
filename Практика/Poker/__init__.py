@@ -7,7 +7,9 @@ from .poker_rules import *
 from .poker_stats import *
 from .PlayerManager import PlayerManager
 from .GameManager import GameManager
-from .ranking_cards import poker_strength
+from .HandCalculator import *
 from .bot import SimpleGeneticBot
 from .BotManager import BotManager
 from .BotFabric import BotFabric
+from .PokerStageNetwork import *
+from .NeuralAgentManager import *
