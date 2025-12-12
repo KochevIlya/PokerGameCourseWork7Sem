@@ -8,8 +8,8 @@ learning_num_games = 50
 learning_num_rounds = 50
 
 
-num_rounds = 20
-num_games = 20
+num_rounds = 30
+num_games = 10
 
 # players = [
 #         SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor"),
@@ -40,7 +40,7 @@ for i in range(num_games):
 
     players = [
         SimpleGeneticBot([0.2, 0.6, 0.2], name="Bluff"),
-        NeuralAgent()
+        PokerAgent()
     ]
     for player in players:
         game.add_player(player)

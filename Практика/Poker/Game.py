@@ -9,10 +9,11 @@ class Game:
     - управление циклическим порядком игроков
     """
 
-    def __init__(self, min_bet=10, players=None):
+    def __init__(self, min_bet=10, initial_stack = 100, players=None):
         self.min_bet = min_bet
         self.registered_players = players[:] if players else []
         self.players = self.registered_players.copy()
+        self.initial_stack = initial_stack
         self.betting_players = self.players.copy()
         self.blind_index = -1
         self.manager = None
@@ -20,6 +21,7 @@ class Game:
 
     def add_player(self, player):
         """Добавляет нового игрока в список зарегистрированных."""
+        player.stack = self.initial_stack
         self.registered_players.append(player)
         self.players.append(player)
         self.betting_players.append(player)

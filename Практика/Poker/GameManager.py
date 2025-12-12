@@ -1,10 +1,11 @@
-from .NeuralAgentManager import *
+from .PokerAgent import *
 from .Deck import Deck
 from .PlayerManager import PlayerManager
 from .Game import Game
 from .Player import Player
 from .BotManager import BotManager
 from .bot import SimpleGeneticBot
+from .PokerAgentManager import *
 
 class GameManager:
     """
@@ -28,11 +29,12 @@ class GameManager:
         for player in self.game.players:
             if isinstance(player, SimpleGeneticBot):
                 self.pm[player] = BotManager(player)
-            elif isinstance(player, NeuralAgent):
-                self.pm[player] = NeuralAgentManager(player)
+            elif isinstance(player, PokerAgent):
+                self.pm[player] = PokerAgentManager(player)
             else:
                 self.pm[player] = PlayerManager(player)
-
+        self.num_players = len(self.game.registered_players)
+        self.max_chips = self.num_players * game.initial_stack
         self.table = []
         self.pot = 0.0
 
@@ -95,14 +97,14 @@ class GameManager:
 
         for player in self.game.players:
             pm = self.pm[player]
-            if isinstance(pm, NeuralAgentManager):
+            if isinstance(pm, PokerAgentManager):
                 # Если игрок выиграл, won_amount = share.
                 # Если проиграл, won_amount = 0.
                 amount_won = share if player in winners else 0.0
 
                 # Внутри этого метода посчитается разница (stack_end - stack_start)
                 # И вызовется train_step(done=True)
-                pm.finish_hand(amount_won)
+                pm.train_step(None, 1.0 / len(winners))
 
 
 
@@ -119,8 +121,7 @@ class GameManager:
         self.pot = 0.0
         for p, pm in self.pm.items():
             p.reset_for_new_hand()
-            if isinstance(pm, NeuralAgentManager):
-                pm.start_new_hand()
+
 
         self.deck = Deck()
         self.deck.shuffle()
@@ -193,13 +194,13 @@ class GameManager:
                         community_cards=self.table.copy()
                     )
 
-                elif isinstance(pm, NeuralAgentManager):
-                    pm.ask_decision(
+                elif isinstance(pm, PokerAgentManager):
 
-                        current_bet=self.current_bet,
-                        min_raise=self.game.min_bet,
+                    pm.ask_decision(
+                        current_bet_normalized=self.current_bet,
+                        current_stack_normalized=player.get_stack(),
+                        pot_normalize=self.pot ,
                         community_cards=self.table.copy(),
-                        opponent=self.get_another_player(pm),
                         stage=stage
 
                     )
