@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
+import random
 from .PlayerManager import PlayerManager
 from .HandCalculator import HandCalculator
 
@@ -12,6 +13,8 @@ class PokerAgentManager(PlayerManager):
         # Храним тензоры для обучения
         self.last_prediction_tensor = None
         self.last_stage_name = None
+
+        self.epsilon_prob = 0.5
 
     def get_prediction_data(self, stage, state_vector):
         """
@@ -28,6 +31,10 @@ class PokerAgentManager(PlayerManager):
         return prediction_tensor, prediction_tensor.item()
 
     def make_decision(self, probability):
+
+        if random.random() < self.epsilon_prob:
+            return random.choice(["raise", "call"])
+
         if probability < 0.3:
             return "fold"
         elif probability < 0.7:
@@ -84,7 +91,7 @@ class PokerAgentManager(PlayerManager):
         # 2. Сначала обучаем предыдущий шаг (если он есть)
         if self.last_prediction_tensor is not None:
             # Бутстрап на основании reward или просто 0
-            self.train_step(next_stage_value=0.0)
+            self.train_step(next_stage_value=state_vector)
 
         # 3. Новый forward (после обучения!)
         current_tensor = self.player.networks[stage](state_vector)
@@ -98,5 +105,10 @@ class PokerAgentManager(PlayerManager):
         decision = self.make_decision(current_prob)
         self.player.set_decision(decision)
 
+        print(f"\nИгрок {self.player.name}")
+        print(f"Ваши карты: {self.player.hole_cards}")
+        print(f"Текущая ставка: {self.player.bet}, стек: {self.player.stack}")
+        print(f"Ваша лучшая комбинация: {self.player.best_hand}")
+        print(f"Ваш выбор: {self.player.decision}")
         return self.player.decision
 

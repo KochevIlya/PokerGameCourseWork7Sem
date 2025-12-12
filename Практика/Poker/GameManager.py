@@ -1,3 +1,4 @@
+from . import compare_hands
 from .PokerAgent import *
 from .Deck import Deck
 from .PlayerManager import PlayerManager
@@ -89,23 +90,77 @@ class GameManager:
         return winners
 
     def winners_distribution(self, winners: list[Player]):
-
+        """
+        Распределяет выигрыш и раздает награды (Rewards) для обучения.
+        Здесь мы наказываем за трусость и поощряем за умные фолды.
+        """
         share = self.pot / len(winners)
 
+
+        # 1. Раздаем фишки победителям
         for winner in winners:
             winner.add_stack(share)
 
+        # Берем сильнейшую руку среди победителей для сравнения
+        # (предполагаем, что winners уже отсортированы или у них равные руки)
+        winner_hand_strength = winners[0].best_hand
+        # Если best_hand это объект, нужно привести к числу.
+        # Если у тебя best_hand это кортеж/список, логику сравнения нужно адаптировать.
+        # Для простоты допустим, что мы можем сравнить силу рук заново.
+
+        # 2. Проходим по ВСЕМ игрокам (включая тех, кто сфолдил)
         for player in self.game.players:
             pm = self.pm[player]
+
+            # Нас интересуют только наши обучаемые агенты
             if isinstance(pm, PokerAgentManager):
-                # Если игрок выиграл, won_amount = share.
-                # Если проиграл, won_amount = 0.
-                amount_won = share if player in winners else 0.0
 
-                # Внутри этого метода посчитается разница (stack_end - stack_start)
-                # И вызовется train_step(done=True)
-                pm.train_step(None, 1.0 / len(winners))
+                # Сценарий А: Игрок дошел до конца (Active)
+                if player.in_hand:
+                    if player in winners:
+                        # Победа: Большая награда
+                        pm.train_step(None, reward=1.0)
+                    else:
+                        # Поражение на вскрытии: Отрицательная или 0
+                        # Лучше давать небольшой минус, чтобы он хотел выигрывать, а не просто играть
+                        pm.train_step(None, reward=-0.5)
 
+                        # Сценарий Б: Игрок сфолдил (Folded)
+                else:
+                    self._analyze_fold_decision(player, pm, winners)
+
+    def _analyze_fold_decision(self, folded_player: Player, pm, winners):
+        """
+        Анализирует, правильным ли был фолд.
+        Сравнивает карты сбросившего с картами победителя на текущем столе.
+        """
+        # Нам нужно оценить силу руки, которая была сброшена, учитывая ВЕСЬ стол (даже если фолд был на префлопе)
+        # Вариант 1: Сравниваем "честно" (как если бы игрок дошел до конца с текущим столом)
+        # HandCalculator должен уметь работать с текущим self.table (даже если там 0, 3 или 5 карт)
+
+        # Считаем силу руки сбросившего
+        folder_strength = self.pm[folded_player].update_best_hand(self.table)
+
+        # Считаем силу руки победителя (берем первого попавшегося, так как они выиграли)
+        winner_player = winners[0]
+        winner_strength = winner_player.best_hand
+
+        # Логика вознаграждения
+        if compare_hands(folder_strength, winner_strength) !=2:
+            # BAD FOLD: У нас карты были лучше, чем у того, кто забрал банк!
+            # Наказываем сильно.
+            print(f"Bot {folded_player.name} FOLDED winning hand! Punishing.")
+            pm.train_step(None, reward=-1.0)
+        else:
+            # GOOD FOLD: У победителя карты реально лучше.
+            # Поощряем немного (за экономию стека).
+            # Не делай награду слишком большой, иначе он будет только фолдить.
+            # 0.2 - это "утешительный приз".
+            print(f"Bot {folded_player.name} made a GOOD FOLD.")
+            pm.train_step(None, reward=0.2)
+
+        print(f"Folder_hand: {folder_strength}")
+        print(f"Winner_hand: {winner_strength}")
 
 
 
@@ -197,9 +252,9 @@ class GameManager:
                 elif isinstance(pm, PokerAgentManager):
 
                     pm.ask_decision(
-                        current_bet_normalized=self.current_bet,
-                        current_stack_normalized=player.get_stack(),
-                        pot_normalize=self.pot ,
+                        current_bet_normalized=self.current_bet / self.game.initial_stack / self.num_players,
+                        current_stack_normalized=player.get_stack() / self.game.initial_stack / self.num_players,
+                        pot_normalize=self.pot / self.game.initial_stack / self.num_players,
                         community_cards=self.table.copy(),
                         stage=stage
 

@@ -14,11 +14,11 @@ class BotManager(PlayerManager):
         
         score = self.player.genome[0] * hand_strength + self.player.genome[1] * bluff_rand + (1/len(self.player.genome) - self.player.genome[2] * current_bet / (current_bet + self.player.get_stack()))
 
-        # print(f"\nИгрок {self.player.name}")
-        # print(f"Ваши карты: {self.player.hole_cards}")
-        # print(f"Текущая ставка: {self.player.bet}, стек: {self.player.stack}")
-        # print(f"На столе ставка {current_bet}. Минимальный рейз: {min_raise}")
-        # print(f"Ваша лучшая комбинация: {self.player.best_hand}")
+        print(f"\nИгрок {self.player.name}")
+        print(f"Ваши карты: {self.player.hole_cards}")
+        print(f"Текущая ставка: {self.player.bet}, стек: {self.player.stack}")
+        print(f"На столе ставка {current_bet}. Минимальный рейз: {min_raise}")
+        print(f"Ваша лучшая комбинация: {self.player.best_hand}")
 
         if score > 0.8:
             self.player.decision = "raise"
