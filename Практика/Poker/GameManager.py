@@ -7,6 +7,7 @@ from .Player import Player
 from .BotManager import BotManager
 from .bot import SimpleGeneticBot
 from .PokerAgentManager import *
+from .NeuralAgentManager import *
 
 class GameManager:
     """
@@ -31,7 +32,7 @@ class GameManager:
             if isinstance(player, SimpleGeneticBot):
                 self.pm[player] = BotManager(player)
             elif isinstance(player, PokerAgent):
-                self.pm[player] = PokerAgentManager(player)
+                self.pm[player] = NeuralAgentManager(player)
             else:
                 self.pm[player] = PlayerManager(player)
         self.num_players = len(self.game.registered_players)
@@ -113,21 +114,40 @@ class GameManager:
             pm = self.pm[player]
 
             # Нас интересуют только наши обучаемые агенты
-            if isinstance(pm, PokerAgentManager):
+            if isinstance(pm, NeuralAgentManager):
+
+
+
+                folded_player = pm.player
+                folder_strength = self.pm[folded_player].update_best_hand(self.table)
+
+                winner_player = winners[0]
+                winner_strength = winner_player.best_hand
+
+                final_reward = -0.1 * folded_player.get_bet() / self.game.initial_stack / self.num_players
+
+
 
                 # Сценарий А: Игрок дошел до конца (Active)
                 if player.in_hand:
                     if player in winners:
                         # Победа: Большая награда
-                        pm.train_step(None, reward=1.0)
-                    else:
-                        # Поражение на вскрытии: Отрицательная или 0
-                        # Лучше давать небольшой минус, чтобы он хотел выигрывать, а не просто играть
-                        pm.train_step(None, reward=-0.5)
-
+                        final_reward = 1
                         # Сценарий Б: Игрок сфолдил (Folded)
+
                 else:
-                    self._analyze_fold_decision(player, pm, winners)
+                    if compare_hands(folder_strength, winner_strength) != 2:
+                        # BAD FOLD: У нас карты были лучше, чем у того, кто забрал банк!
+                        # Наказываем сильно.
+                        print(f"Bot {folded_player.name} FOLDED winning hand! Punishing.")
+                        final_reward = -0.1 * folded_player.get_bet() / self.game.initial_stack / self.num_players
+
+
+
+                s, a, _, s_next, _ = pm.episode_memory[-1]
+                pm.episode_memory[-1] = (s, a, final_reward, s_next, True)
+                for transition in pm.episode_memory:
+                    pm.train_step(*transition)
 
     def _analyze_fold_decision(self, folded_player: Player, pm, winners):
         """
@@ -249,15 +269,19 @@ class GameManager:
                         community_cards=self.table.copy()
                     )
 
-                elif isinstance(pm, PokerAgentManager):
+                elif isinstance(pm, NeuralAgentManager):
 
-                    pm.ask_decision(
+                    next_state = pm.build_state_vector(
                         current_bet_normalized=self.current_bet / self.game.initial_stack / self.num_players,
                         current_stack_normalized=player.get_stack() / self.game.initial_stack / self.num_players,
                         pot_normalize=self.pot / self.game.initial_stack / self.num_players,
                         community_cards=self.table.copy(),
                         stage=stage
+                    )
+                    pm.ask_decision(next_state)
 
+                    pm.episode_memory.append(
+                        (pm.last_state, pm.last_action, 0.0, next_state, False)
                     )
 
                 elif isinstance(pm, PlayerManager):

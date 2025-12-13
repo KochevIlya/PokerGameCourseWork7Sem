@@ -1,51 +1,30 @@
-import torch
-import torch.nn as nn
 import torch.optim as optim
 import numpy as np
+import random
 from .Player import *
+import torch
+import torch.nn as nn
 
-class PokerNet(nn.Module):
-    def __init__(self, input_size=4, hidden_size=16):
-        super(PokerNet, self).__init__()
-        self.model = nn.Sequential(
-            nn.Linear(input_size, hidden_size),
-            nn.ReLU(),  # Функция активации
-            nn.Linear(hidden_size, hidden_size),
+class DQN(nn.Module):
+    def __init__(self, state_size, action_size):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(state_size, 64),
             nn.ReLU(),
-            nn.Linear(hidden_size, 1),  # Один выход
-            nn.Sigmoid()  # Прижимает выход к диапазону [0, 1]
+            nn.Linear(64, 64),
+            nn.ReLU(),
+            nn.Linear(64, action_size)
         )
 
     def forward(self, x):
-        return self.model(x)
+        return self.net(x)
 
 
 class PokerAgent(Player):
-    def __init__(self,name="Agent", learning_rate=0.01, gamma=0.99):
-        """
-        gamma (дисконтирующий фактор): насколько важен будущий выигрыш по сравнению с текущим.
-        """
-        super().__init__(name)
-        self.gamma = gamma
+    def __init__(self, name="NeuralAgent", stack=100, state_size=5, action_size=3):
+        super().__init__(name, stack)
+        self.model = DQN(state_size, action_size)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=1e-3)
+        self.gamma = 0.99
+        self.epsilon = 0.1
 
-        # Создаем 4 независимые нейросети для каждого раунда
-        self.networks = {
-            'preflop': PokerNet(),
-            'flop': PokerNet(),
-            'turn': PokerNet(),
-            'river': PokerNet()
-        }
-
-        # Создаем оптимизаторы для каждой сети (они обновляют веса)
-        self.optimizers = {
-            name: optim.Adam(net.parameters(), lr=learning_rate)
-            for name, net in self.networks.items()
-        }
-
-        # Функция потерь (MSE - среднеквадратичная ошибка)
-        self.criterion = nn.MSELoss()
-
-        # Память для хранения состояния текущего раунда, чтобы обучиться позже
-        self.last_state = None
-        self.last_stage = None
-        self.last_prediction = None
