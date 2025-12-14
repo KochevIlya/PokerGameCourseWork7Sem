@@ -9,6 +9,7 @@ from .bot import SimpleGeneticBot
 from .NeuralAgentManager import *
 from .NeuralAgentManager import *
 from functools import cmp_to_key
+from .Logger import *
 
 class GameManager:
     """

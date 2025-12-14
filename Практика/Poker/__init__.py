@@ -13,3 +13,4 @@ from .BotManager import BotManager
 from .BotFabric import BotFabric
 from .NeuralAgent import *
 from .NeuralAgentManager import *
+from .Logger import *

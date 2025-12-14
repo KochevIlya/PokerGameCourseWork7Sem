@@ -9,7 +9,7 @@ learning_num_rounds = 50
 
 
 num_rounds = 30
-num_games = 1000
+num_games = 20000
 
 # players = [
 #         SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor"),
