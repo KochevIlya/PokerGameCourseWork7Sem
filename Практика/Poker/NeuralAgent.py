@@ -13,6 +13,8 @@ class DQN(nn.Module):
             nn.ReLU(),
             nn.Linear(64, 64),
             nn.ReLU(),
+            nn.Linear(64, 64),
+            nn.ReLU(),
             nn.Linear(64, action_size)
         )
 
@@ -20,11 +22,11 @@ class DQN(nn.Module):
         return self.net(x)
 
 
-class PokerAgent(Player):
-    def __init__(self, name="NeuralAgent", stack=100, state_size=5, action_size=3):
+class NeuralAgent(Player):
+    def __init__(self, name="NeuralAgent", stack=100, state_size=7, action_size=3):
         super().__init__(name, stack)
         self.model = DQN(state_size, action_size)
         self.optimizer = optim.Adam(self.model.parameters(), lr=1e-3)
-        self.gamma = 0.99
+        self.gamma = 0.9
         self.epsilon = 0.1
 

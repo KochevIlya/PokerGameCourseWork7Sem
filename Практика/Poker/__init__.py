@@ -11,5 +11,5 @@ from .HandCalculator import *
 from .bot import SimpleGeneticBot
 from .BotManager import BotManager
 from .BotFabric import BotFabric
-from .PokerAgent import *
-from .PokerAgentManager import *
+from .NeuralAgent import *
+from .NeuralAgentManager import *

@@ -16,6 +16,8 @@ class PlayerManager:
 
     def __init__(self, player: Player):
         self.player = player
+        self.decision_value = 0
+        self.num_bets = 0
         self.DECISIONS = {
             1: "fold",
             2: "call",

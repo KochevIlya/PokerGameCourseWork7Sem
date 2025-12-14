@@ -1,13 +1,14 @@
 from . import compare_hands
-from .PokerAgent import *
+from .NeuralAgent import *
 from .Deck import Deck
 from .PlayerManager import PlayerManager
 from .Game import Game
 from .Player import Player
 from .BotManager import BotManager
 from .bot import SimpleGeneticBot
-from .PokerAgentManager import *
 from .NeuralAgentManager import *
+from .NeuralAgentManager import *
+from functools import cmp_to_key
 
 class GameManager:
     """
@@ -31,7 +32,7 @@ class GameManager:
         for player in self.game.players:
             if isinstance(player, SimpleGeneticBot):
                 self.pm[player] = BotManager(player)
-            elif isinstance(player, PokerAgent):
+            elif isinstance(player, NeuralAgent):
                 self.pm[player] = NeuralAgentManager(player)
             else:
                 self.pm[player] = PlayerManager(player)
@@ -39,6 +40,8 @@ class GameManager:
         self.max_chips = self.num_players * game.initial_stack
         self.table = []
         self.pot = 0.0
+        self.current_decision_value = 0.0
+        self.current_num_bets = 0
 
     def start_game(self, num_rounds):
         for i in range(num_rounds):
@@ -64,22 +67,26 @@ class GameManager:
         """
         Основной игровой цикл одной раздачи.
         """
+        self.current_decision_value = 0.0
+        self.current_num_bets = 0
 
         self._post_blinds()
         
         self._betting_round(stage="preflop")
         
         self._deal_flop()
-        # self.show_current_situation()
+        self.show_current_situation()
 
 
         self._betting_round(stage="flop")
 
         self._deal_turn()
-        # self.show_current_situation()
+        self.show_current_situation()
         self._betting_round(stage="turn")
 
+
         self._deal_river()
+        self.show_current_situation()
         self._betting_round(stage="river")
 
 
@@ -124,7 +131,7 @@ class GameManager:
                 winner_player = winners[0]
                 winner_strength = winner_player.best_hand
 
-                final_reward = -0.1 * folded_player.get_bet() / self.game.initial_stack / self.num_players
+                final_reward = -0.5 * folded_player.get_bet() / self.game.initial_stack / self.num_players
 
 
 
@@ -132,15 +139,16 @@ class GameManager:
                 if player.in_hand:
                     if player in winners:
                         # Победа: Большая награда
-                        final_reward = 1
+                        final_reward = 1 * self.pot / self.game.initial_stack / self.num_players
+
                         # Сценарий Б: Игрок сфолдил (Folded)
 
                 else:
-                    if compare_hands(folder_strength, winner_strength) != 2:
+                    if  compare_hands(folder_strength, winner_strength) != 2:
                         # BAD FOLD: У нас карты были лучше, чем у того, кто забрал банк!
                         # Наказываем сильно.
                         print(f"Bot {folded_player.name} FOLDED winning hand! Punishing.")
-                        final_reward = -0.1 * folded_player.get_bet() / self.game.initial_stack / self.num_players
+                        final_reward = -1 * folded_player.get_bet() / self.game.initial_stack / self.num_players
 
 
 
@@ -249,7 +257,12 @@ class GameManager:
         order = self._betting_order(stage)
         players_to_act = set(order)
 
+        for player in active_players:
+            self.pm[player].num_bets = 0
+            self.pm[player].decision_value = 0
+
         while players_to_act:
+
             for player in order:
                 if player not in players_to_act:
                     continue
@@ -260,7 +273,7 @@ class GameManager:
                     continue
 
                 pm = self.pm[player]
-
+                pm.update_best_hand(self.table)
                 # self.show_current_situation()
                 if  isinstance(pm, BotManager):
                     pm.ask_decision(
@@ -276,6 +289,7 @@ class GameManager:
                         current_stack_normalized=player.get_stack() / self.game.initial_stack / self.num_players,
                         pot_normalize=self.pot / self.game.initial_stack / self.num_players,
                         community_cards=self.table.copy(),
+                        opponents_decision_value=(self.current_decision_value * self.current_num_bets - pm.decision_value * pm.num_bets) / (self.current_num_bets - pm.num_bets) if (self.current_num_bets - pm.num_bets) != 0 else 0 ,
                         stage=stage
                     )
                     pm.ask_decision(next_state)
@@ -294,6 +308,11 @@ class GameManager:
 
 
                 if player.decision == "fold":
+                    self.current_num_bets += 1
+                    self.current_decision_value = self.current_decision_value / self.current_num_bets
+                    pm.num_bets += 1
+                    pm.decision_value = pm.decision_value / pm.num_bets
+
                     pm.fold()
                     players_to_act.remove(player)
                     self.game.remove_player_betting_round(player)
@@ -301,6 +320,10 @@ class GameManager:
                     continue
 
                 if player.decision == "raise":
+                    self.current_num_bets += 1
+                    self.current_decision_value = self.current_decision_value / self.current_num_bets + 1 / self.current_num_bets
+                    pm.num_bets += 1
+                    pm.decision_value = pm.decision_value / pm.num_bets + 1 / pm.num_bets
 
                     needed = self.current_bet + self.game.min_bet
 
@@ -318,6 +341,10 @@ class GameManager:
                         continue
 
                 if player.decision == "call":
+                    self.current_num_bets += 1
+                    self.current_decision_value += self.current_decision_value / self.current_num_bets + 0.5 / self.current_num_bets
+                    pm.num_bets += 1
+                    pm.decision_value = pm.decision_value / pm.num_bets + 0.5 / pm.num_bets
 
                     needed = self.current_bet
                     if pm.can_apply(needed):
@@ -391,7 +418,7 @@ class GameManager:
             return active_players
 
         # сравнение best_hand — предполагаем, что best_hand = список значений
-        active_players.sort(key=lambda p: p.best_hand, reverse=True)
+        active_players.sort(key=cmp_to_key(compare_players_adapted), reverse=True)
 
         best = active_players[0].best_hand
         winners = [p for p in active_players if p.best_hand == best]
@@ -399,3 +426,22 @@ class GameManager:
 
 
         return winners
+
+
+def compare_players(player1, player2):
+    return compare_hands(player1.best_hand, player2.best_hand)
+
+
+def compare_players_adapted(player1, player2):
+    """
+    Адаптер для compare_hands, который преобразует 0,1,2 в -1,0,1
+    """
+
+    result = compare_hands(player1.best_hand, player2.best_hand)
+
+    if result == 0:  # ничья
+        return 0
+    elif result == 1:  # player1.best_hand лучше
+        return 1  # player1 должен быть первым (при reverse=True)
+    else:  # result == 2, player2.best_hand лучше
+        return -1  # player2 должен быть первым (при reverse=True)

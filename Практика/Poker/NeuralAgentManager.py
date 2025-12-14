@@ -5,24 +5,15 @@ import numpy as np
 import random
 from .PlayerManager import PlayerManager
 from .HandCalculator import HandCalculator
-from .PokerAgent import *
+from .NeuralAgent import *
 
-STAGES ={
-    "preflop": 0,
-    "flop": 1,
-    "turn": 2,
-    "river": 3,
-}
-ACTIONS = {
-    0 : "fold",
-    1 : "raise",
-    2 : "call",
-}
+STAGES ={ "preflop": 0, "flop": 1, "turn": 2, "river": 3, }
+ACTIONS = { 0 : "fold", 1 : "raise", 2 : "call", }
 
 class NeuralAgentManager(PlayerManager):
-    def __init__(self, player: PokerAgent):
+    def __init__(self, player:NeuralAgent):
         super().__init__(player)
-        self.episode_memory = []
+        self.episode_memory = []  # <-- ВАЖНО
 
 
     def act(self, state):
@@ -52,14 +43,14 @@ class NeuralAgentManager(PlayerManager):
         loss.backward()
         self.player.optimizer.step()
 
-    def ask_decision(self, state_vector):
+    def ask_decision(self, state_vector:list):
+
         action_idx = self.act(state_vector)
         action = ACTIONS[action_idx]
         self.player.set_decision(action)
 
-        self.last_action = action_idx
         self.last_state = state_vector
-
+        self.last_action = action_idx
 
         print(f"\nИгрок {self.player.name}")
         print(f"Ваши карты: {self.player.hole_cards}")
@@ -67,14 +58,15 @@ class NeuralAgentManager(PlayerManager):
         print(f"Ваша лучшая комбинация: {self.player.best_hand}")
         print(f"Ваш выбор: {self.player.decision}")
         return self.player.decision
-    def build_state_vector(self, current_bet_normalized, current_stack_normalized, pot_normalize, community_cards,
-                     stage="preflop"):
+
+    def build_state_vector(self, current_bet_normalized, current_stack_normalized, pot_normalize, community_cards, opponents_decision_value,
+                           stage="preflop"):
         hand_strength = HandCalculator.evaluate_hand_strength(self.player.hole_cards, community_cards)
         stage = STAGES[stage] / len(STAGES)
-        state_vector = [
-            hand_strength,
-            current_bet_normalized,
-            current_stack_normalized,
-            pot_normalize,
-            stage]
+
+        state_vector = [hand_strength, current_bet_normalized, current_stack_normalized, pot_normalize, stage]
+        state_vector.append(opponents_decision_value)
+        state_vector.append(self.decision_value)
         return state_vector
+
+
