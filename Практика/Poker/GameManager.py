@@ -206,6 +206,7 @@ class GameManager:
             p.reset_for_new_hand()
 
 
+
         self.deck = Deck()
         self.deck.shuffle()
 

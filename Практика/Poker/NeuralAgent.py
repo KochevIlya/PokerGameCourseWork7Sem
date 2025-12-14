@@ -26,7 +26,14 @@ class NeuralAgent(Player):
     def __init__(self, name="NeuralAgent", stack=100, state_size=7, action_size=3):
         super().__init__(name, stack)
         self.model = DQN(state_size, action_size)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=1e-3)
-        self.gamma = 0.9
-        self.epsilon = 0.1
+        self.optimizer = optim.Adam(self.model.parameters(), lr=3e-4)
+        self.gamma = 0.99
+        self.epsilon = 0.2  # стартуем с полного рандома
+        self.epsilon_min = 0.02
+        self.epsilon_decay = 0.95
+
+    def reset_for_new_hand(self):
+        super().reset_for_new_hand()
+        self.epsilon = max(self.epsilon_min,self.epsilon * self.epsilon_decay)
+
 

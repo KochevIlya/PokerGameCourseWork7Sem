@@ -18,7 +18,7 @@ class NeuralAgentManager(PlayerManager):
 
     def act(self, state):
         if random.random() < self.player.epsilon:
-            return random.randint(0, 2)
+            return int(torch.randint(0, 3, (1,)).item())
 
         state = torch.tensor(state, dtype=torch.float32)
         q_values = self.player.model(state)
@@ -69,4 +69,6 @@ class NeuralAgentManager(PlayerManager):
         state_vector.append(self.decision_value)
         return state_vector
 
-
+    def decay_epsilon(self):
+        if self.player.epsilon > self.player.epsilon_min:
+            self.player.epsilon *= self.player.epsilon_decay

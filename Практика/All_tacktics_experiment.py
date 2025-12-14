@@ -11,6 +11,12 @@ learning_num_rounds = 50
 num_rounds = 30
 num_games = 1000
 
+aggressor = SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor")
+tight = SimpleGeneticBot([0.15, 0.05, 0.8], name="Tight")
+bluff = SimpleGeneticBot([0.2, 0.6, 0.2], name="Bluff")
+balanced = SimpleGeneticBot([0.33, 0.33, 0.33], name="Balanced")
+maniac = SimpleGeneticBot([0.45, 0.45, 0.1], name="Maniac")
+
 # players = [
 #         SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor"),
 #         SimpleGeneticBot([0.15, 0.05, 0.8], name="Tight"),
@@ -19,7 +25,17 @@ num_games = 1000
 #         SimpleGeneticBot([0.45, 0.45, 0.1], name="Maniac"),
 #     ]
 
+tactics = [
+    aggressor,
+    tight,
+    bluff,
+    balanced,
+    maniac,
+]
+
 game_winners = []
+num_wins = { p:0 for p in tactics }
+
 
 # bot_fabric = BotFabric()
 # bot_fabric.fit(learning_num_games, learning_num_rounds)
@@ -38,11 +54,12 @@ for i in range(num_games):
     #     bot_fabric.get_result_bot()
     # ]
 
-    players = [
-        SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor"),
-        NeuralAgent()
-    ]
-    for player in players:
+    # players = [
+    #     SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor"),
+    #     NeuralAgent()
+    # ]
+
+    for player in tactics:
         game.add_player(player)
 
     gameManager = GameManager(game)
@@ -50,6 +67,14 @@ for i in range(num_games):
     winners = gameManager.start_game(num_rounds)
 
     print(f'\033[32mМеста в порядке убывания: {winners}\033[0m\n')
+
     game_winners.append(winners)
+    best_stack = winners[0].get_stack()
+    for winner in winners:
+        if(winner.stack == best_stack):
+            num_wins[winner] += 1
+
+
 
 print(f'\033[32mМеста в порядке убывания: {game_winners}\033[0m\n')
+print(f'\033[32mКоличество выигрышей: {num_wins}\033[0m\n')
