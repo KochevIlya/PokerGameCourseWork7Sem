@@ -28,7 +28,6 @@ class GameManager:
         """
         self.game = game
         self.current_bet = 0.0
-        # Менеджеры на каждого игрока
         self.pm = dict()
         for player in self.game.players:
             if isinstance(player, SimpleGeneticBot):
@@ -113,21 +112,12 @@ class GameManager:
         share = self.pot / len(winners)
 
 
-        # 1. Раздаем фишки победителям
 
 
-        # Берем сильнейшую руку среди победителей для сравнения
-        # (предполагаем, что winners уже отсортированы или у них равные руки)
         winner_hand_strength = winners[0].best_hand
-        # Если best_hand это объект, нужно привести к числу.
-        # Если у тебя best_hand это кортеж/список, логику сравнения нужно адаптировать.
-        # Для простоты допустим, что мы можем сравнить силу рук заново.
-
-        # 2. Проходим по ВСЕМ игрокам (включая тех, кто сфолдил)
         for player in self.game.players:
             pm = self.pm[player]
 
-            # Нас интересуют только наши обучаемые агенты
             if isinstance(pm, NeuralAgentManager):
 
 
@@ -141,18 +131,14 @@ class GameManager:
                 final_reward = -1 * folded_player.get_bet() / self.game.initial_stack / self.num_players
 
 
-
-                # Сценарий А: Игрок дошел до конца (Active)
                 if player.in_hand:
                     if player in winners:
-                        # Победа: Большая награда
                         final_reward = 1 * (self.pot - player.get_bet()) / self.game.initial_stack / self.num_players
 
 
                 else:
                     if  compare_hands(folder_strength, winner_strength) != 2:
                         # BAD FOLD: У нас карты были лучше, чем у того, кто забрал банк!
-                        # Наказываем сильно.
                         StaticLogger.print(f"Bot {folded_player.name} FOLDED winning hand! Punishing.")
                         final_reward -= 0.5
                     else:
@@ -162,56 +148,17 @@ class GameManager:
                 s, a, _, s_next, _ = pm.episode_memory[-1]
                 pm.episode_memory[-1] = (s, a, final_reward, s_next, True)
                 self.pm[player].remember_episode(final_reward)
-                # for transition in pm.episode_memory:
-                #     pm.train_step(*transition)
 
-            for player in self.game.players:
-                if isinstance(self.pm[player], NeuralAgentManager):
-                    self.pm[player].train_experience_replay()
 
-            if self.games_count % self.games_not_trained == 0 and self.round == 0:
-                if isinstance(self.pm[player], NeuralAgentManager):
+
+                self.pm[player].train_experience_replay()
+
+                if self.games_count % self.games_not_trained == 0 and self.round == 0:
                     self.pm[player].update_target_network()
                     StaticLogger.print("Target Network updated!")
 
         for winner in winners:
             winner.add_stack(share)
-
-    def _analyze_fold_decision(self, folded_player: Player, pm, winners):
-        """
-        Анализирует, правильным ли был фолд.
-        Сравнивает карты сбросившего с картами победителя на текущем столе.
-        """
-        # Нам нужно оценить силу руки, которая была сброшена, учитывая ВЕСЬ стол (даже если фолд был на префлопе)
-        # Вариант 1: Сравниваем "честно" (как если бы игрок дошел до конца с текущим столом)
-        # HandCalculator должен уметь работать с текущим self.table (даже если там 0, 3 или 5 карт)
-
-        # Считаем силу руки сбросившего
-        folder_strength = self.pm[folded_player].update_best_hand(self.table)
-
-        # Считаем силу руки победителя (берем первого попавшегося, так как они выиграли)
-        winner_player = winners[0]
-        winner_strength = winner_player.best_hand
-
-        # Логика вознаграждения
-        if compare_hands(folder_strength, winner_strength) !=2:
-            # BAD FOLD: У нас карты были лучше, чем у того, кто забрал банк!
-            # Наказываем сильно.
-            StaticLogger.print(f"Bot {folded_player.name} FOLDED winning hand! Punishing.")
-            pm.train_step(None, reward=-1.0)
-        else:
-            # GOOD FOLD: У победителя карты реально лучше.
-            # Поощряем немного (за экономию стека).
-            # Не делай награду слишком большой, иначе он будет только фолдить.
-            # 0.2 - это "утешительный приз".
-            StaticLogger.print(f"Bot {folded_player.name} made a GOOD FOLD.")
-            pm.train_step(None, reward=0.2)
-
-        StaticLogger.print(f"Folder_hand: {folder_strength}")
-        StaticLogger.print(f"Winner_hand: {winner_strength}")
-
-
-
 
     def show_current_situation(self):
         StaticLogger.print(f"\nКарты на столе: {self.table}")
@@ -232,7 +179,6 @@ class GameManager:
 
         self.game.reset_betting_players()
 
-        # Раздача холд-карт
         for p in self.game.players:
             p.add_card(self.deck.dealcard())
             p.add_card(self.deck.dealcard())
@@ -295,7 +241,6 @@ class GameManager:
 
                 pm = self.pm[player]
                 pm.update_best_hand(self.table)
-                # self.show_current_situation()
                 if  isinstance(pm, BotManager):
                     pm.ask_decision(
                         current_bet=self.current_bet,
@@ -438,7 +383,6 @@ class GameManager:
         if len(active_players) == 1:
             return active_players
 
-        # сравнение best_hand — предполагаем, что best_hand = список значений
         active_players.sort(key=cmp_to_key(compare_players_adapted), reverse=True)
 
         best = active_players[0].best_hand
@@ -460,9 +404,9 @@ def compare_players_adapted(player1, player2):
 
     result = compare_hands(player1.best_hand, player2.best_hand)
 
-    if result == 0:  # ничья
+    if result == 0:
         return 0
-    elif result == 1:  # player1.best_hand лучше
-        return 1  # player1 должен быть первым (при reverse=True)
-    else:  # result == 2, player2.best_hand лучше
-        return -1  # player2 должен быть первым (при reverse=True)
+    elif result == 1:
+        return 1
+    else:
+        return -1

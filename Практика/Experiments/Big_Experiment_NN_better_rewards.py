@@ -1,4 +1,4 @@
-from Практика.Poker import *
+from Практика.Poker import * 
 
 # player_names = ["Ilya", "Stas", "Matvei", "Anton", "Artem", "Alex", "Nikita", "Semen"]
 # player_names = ["Ilya", "Stas"]

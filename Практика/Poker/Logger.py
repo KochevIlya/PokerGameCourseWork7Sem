@@ -8,12 +8,12 @@ class StaticLogger:
     _filename = "app.log"
     _buffer_size = 1000
     _buffer = []
-    _debug = False  # Включаем отладку
+    _debug = False
 
     @staticmethod
     def print(*args):
         """Статический метод для логирования"""
-        # Создаём экземпляр если его нет
+
         if StaticLogger._instance is None:
             StaticLogger._instance = StaticLogger()
 
@@ -47,13 +47,12 @@ class StaticLogger:
                 if StaticLogger._debug:
                     print(f"[LOGGER] Пытаюсь записать в файл...")
 
-                # Проверяем директорию
                 file_path = os.path.abspath(StaticLogger._filename)
                 directory = os.path.dirname(file_path)
                 if directory and not os.path.exists(directory):
                     os.makedirs(directory, exist_ok=True)
 
-                # Записываем
+
                 with open(StaticLogger._filename, 'a', encoding='utf-8') as f:
                     content = '\n'.join(StaticLogger._buffer) + '\n'
                     f.write(content)

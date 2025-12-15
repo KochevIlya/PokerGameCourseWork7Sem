@@ -15,7 +15,7 @@ ACTIONS = { 0 : "fold", 1 : "raise", 2 : "call", }
 class NeuralAgentManager(PlayerManager):
     def __init__(self, player:NeuralAgent):
         super().__init__(player)
-        self.episode_memory = []  # <-- ВАЖНО
+        self.episode_memory = []
         self.replay_buffer = deque(maxlen=10000)
         self.batch_size = 64
 
@@ -58,16 +58,13 @@ class NeuralAgentManager(PlayerManager):
         self.player.optimizer.step()
 
     def train_experience_replay(self):
-        # Если в буфере мало данных, не учимся (ждем накопления)
         if len(self.replay_buffer) < self.batch_size:
             return
 
-        # 1. Берем СЛУЧАЙНЫЙ пакет (вот она, магия!)
         batch = random.sample(self.replay_buffer, self.batch_size)
 
-        # Распаковываем пакет
-        states, actions, rewards, next_states, dones = zip(*batch)
 
+        states, actions, rewards, next_states, dones = zip(*batch)
         states = torch.tensor(states, dtype=torch.float32)
         actions = torch.tensor(actions, dtype=torch.long).unsqueeze(1)
         rewards = torch.tensor(rewards, dtype=torch.float32)
@@ -93,7 +90,6 @@ class NeuralAgentManager(PlayerManager):
         self.player.optimizer.step()
 
     def update_target_network(self):
-        # Копируем веса из policy в target
         self.player.target_net.load_state_dict(self.player.model.state_dict())
 
     def ask_decision(self, state_vector:list):
