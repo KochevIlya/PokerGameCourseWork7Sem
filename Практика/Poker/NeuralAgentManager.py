@@ -18,7 +18,6 @@ class NeuralAgentManager(PlayerManager):
         self.episode_memory = []  # <-- ВАЖНО
         self.replay_buffer = deque(maxlen=10000)
         self.batch_size = 64
-        self.current_episode_memory = []
 
     def act(self, state):
         if random.random() < self.player.epsilon:
@@ -31,12 +30,12 @@ class NeuralAgentManager(PlayerManager):
 
     def remember_episode(self, final_reward):
         # 1. Распределяем награду по шагам текущей раздачи и кидаем в ОБЩИЙ буфер
-        for s, a, _, s_next, done in self.current_episode_memory:
+        for s, a, _, s_next, done in self.player.get_memory():
             # Тут можно добавить затухание награды, но для начала просто final_reward
             self.replay_buffer.append((s, a, final_reward, s_next, done))
 
         # Очищаем память текущей раздачи
-        self.current_episode_memory = []
+        self.player.set_memory([])
 
 
     def train_step(self, state, action, reward, next_state, done):

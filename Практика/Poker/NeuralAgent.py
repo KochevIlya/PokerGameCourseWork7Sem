@@ -1,3 +1,5 @@
+from collections import deque
+
 import torch.optim as optim
 import numpy as np
 import random
@@ -34,6 +36,12 @@ class NeuralAgent(Player):
         self.epsilon = 0.2  # стартуем с полного рандома
         self.epsilon_min = 0.02
         self.epsilon_decay = 0.95
+        self.memory = deque(maxlen=20000)
+
+    def get_memory(self):
+        return self.memory
+    def set_memory(self, memory):
+        self.memory = memory
 
     def reset_for_new_hand(self):
         super().reset_for_new_hand()

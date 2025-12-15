@@ -3,7 +3,7 @@ from Практика.Poker import *
 # player_names = ["Ilya", "Stas", "Matvei", "Anton", "Artem", "Alex", "Nikita", "Semen"]
 # player_names = ["Ilya", "Stas"]
 # player_managers = []
-StaticLogger.configure("Big_Experiment_better_NN.log", 1000)
+StaticLogger.configure("Big_Experiment_NN_better_rewards.log", 1000)
 
 learning_num_games = 50
 learning_num_rounds = 50

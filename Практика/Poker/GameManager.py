@@ -44,10 +44,14 @@ class GameManager:
         self.current_decision_value = 0.0
         self.current_num_bets = 0
         self.games_count = 0
-        self.games_not_trained = 30
+        self.games_not_trained = 10
+        self.round = 0
 
-    def start_game(self, num_rounds):
+    def start_game(self, num_rounds, game_counter=0):
+        self.games_count = game_counter
+        StaticLogger.print(f"Game number: {self.games_count}\n")
         for i in range(num_rounds):
+            self.round = i
             StaticLogger.print(f"Round {i}\n")
             StaticLogger.print(f"{str(self.game)}\n")
             self._prepare_round()
@@ -70,8 +74,7 @@ class GameManager:
         """
         Основной игровой цикл одной раздачи.
         """
-        self.games_count += 1
-        StaticLogger.print(f"Gmae number: {self.games_count}\n")
+
         self.current_decision_value = 0.0
         self.current_num_bets = 0
 
@@ -111,8 +114,7 @@ class GameManager:
 
 
         # 1. Раздаем фишки победителям
-        for winner in winners:
-            winner.add_stack(share)
+
 
         # Берем сильнейшую руку среди победителей для сравнения
         # (предполагаем, что winners уже отсортированы или у них равные руки)
@@ -136,7 +138,7 @@ class GameManager:
                 winner_player = winners[0]
                 winner_strength = winner_player.best_hand
 
-                final_reward = -0.5 * folded_player.get_bet() / self.game.initial_stack / self.num_players
+                final_reward = -1 * folded_player.get_bet() / self.game.initial_stack / self.num_players
 
 
 
@@ -144,17 +146,17 @@ class GameManager:
                 if player.in_hand:
                     if player in winners:
                         # Победа: Большая награда
-                        final_reward = 1 * self.pot / self.game.initial_stack / self.num_players
+                        final_reward = 1 * (self.pot - player.get_bet()) / self.game.initial_stack / self.num_players
 
-                        # Сценарий Б: Игрок сфолдил (Folded)
 
                 else:
                     if  compare_hands(folder_strength, winner_strength) != 2:
                         # BAD FOLD: У нас карты были лучше, чем у того, кто забрал банк!
                         # Наказываем сильно.
                         StaticLogger.print(f"Bot {folded_player.name} FOLDED winning hand! Punishing.")
-                        final_reward = -1 * folded_player.get_bet() / self.game.initial_stack / self.num_players
-
+                        final_reward -= 0.5
+                    else:
+                        final_reward += 0.05
 
 
                 s, a, _, s_next, _ = pm.episode_memory[-1]
@@ -167,12 +169,13 @@ class GameManager:
                 if isinstance(self.pm[player], NeuralAgentManager):
                     self.pm[player].train_experience_replay()
 
-            if self.games_count % self.games_not_trained == 0:
-                for player in self.game.players:
-                    if isinstance(self.pm[player], NeuralAgentManager):
-                        self.pm[player].update_target_network()
-                        StaticLogger.print("Target Network updated!")
+            if self.games_count % self.games_not_trained == 0 and self.round == 0:
+                if isinstance(self.pm[player], NeuralAgentManager):
+                    self.pm[player].update_target_network()
+                    StaticLogger.print("Target Network updated!")
 
+        for winner in winners:
+            winner.add_stack(share)
 
     def _analyze_fold_decision(self, folded_player: Player, pm, winners):
         """
