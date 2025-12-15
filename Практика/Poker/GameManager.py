@@ -46,8 +46,8 @@ class GameManager:
 
     def start_game(self, num_rounds):
         for i in range(num_rounds):
-            # print(f"Round {i}\n")
-            # print(f"{str(self.game)}\n")
+            StaticLogger.print(f"Round {i}\n")
+            StaticLogger.print(f"{str(self.game)}\n")
             self._prepare_round()
 
 
@@ -57,9 +57,9 @@ class GameManager:
                 return self.game.registered_players
             else:
                 self.game.next_blinds()
-                print(f"After preparing: {str(self.game)}\n")
-                print(f'\033[32mВыигрывает(ют): {self.start_round()}\033[0m\n')
-        print(f"Game is over, because of the rounds amount")
+                StaticLogger.print(f"After preparing: {str(self.game)}\n")
+                StaticLogger.print(f'\033[32mВыигрывает(ют): {self.start_round()}\033[0m\n')
+        StaticLogger.print(f"Game is over, because of the rounds amount")
         self.game.registered_players.sort(key=lambda p: p.stack, reverse=True)
         return self.game.registered_players
 
@@ -148,7 +148,7 @@ class GameManager:
                     if  compare_hands(folder_strength, winner_strength) != 2:
                         # BAD FOLD: У нас карты были лучше, чем у того, кто забрал банк!
                         # Наказываем сильно.
-                        print(f"Bot {folded_player.name} FOLDED winning hand! Punishing.")
+                        StaticLogger.print(f"Bot {folded_player.name} FOLDED winning hand! Punishing.")
                         final_reward = -1 * folded_player.get_bet() / self.game.initial_stack / self.num_players
 
 
@@ -178,24 +178,24 @@ class GameManager:
         if compare_hands(folder_strength, winner_strength) !=2:
             # BAD FOLD: У нас карты были лучше, чем у того, кто забрал банк!
             # Наказываем сильно.
-            print(f"Bot {folded_player.name} FOLDED winning hand! Punishing.")
+            StaticLogger.print(f"Bot {folded_player.name} FOLDED winning hand! Punishing.")
             pm.train_step(None, reward=-1.0)
         else:
             # GOOD FOLD: У победителя карты реально лучше.
             # Поощряем немного (за экономию стека).
             # Не делай награду слишком большой, иначе он будет только фолдить.
             # 0.2 - это "утешительный приз".
-            print(f"Bot {folded_player.name} made a GOOD FOLD.")
+            StaticLogger.print(f"Bot {folded_player.name} made a GOOD FOLD.")
             pm.train_step(None, reward=0.2)
 
-        print(f"Folder_hand: {folder_strength}")
-        print(f"Winner_hand: {winner_strength}")
+        StaticLogger.print(f"Folder_hand: {folder_strength}")
+        StaticLogger.print(f"Winner_hand: {winner_strength}")
 
 
 
 
     def show_current_situation(self):
-        print(f"\nКарты на столе: {self.table}")
+        StaticLogger.print(f"\nКарты на столе: {self.table}")
         
 
     def _prepare_round(self):
@@ -318,7 +318,7 @@ class GameManager:
                     pm.fold()
                     players_to_act.remove(player)
                     self.game.remove_player_betting_round(player)
-                    print(pm.player)
+                    StaticLogger.print(pm.player)
                     continue
 
                 if player.decision == "raise":
@@ -339,7 +339,7 @@ class GameManager:
 
                         players_to_act = set(order)
                         players_to_act.remove(player)
-                        print(pm.player)
+                        StaticLogger.print(pm.player)
                         continue
 
                 if player.decision == "call":
@@ -353,13 +353,13 @@ class GameManager:
                         to_call = pm.call(needed)
                         self.pot += to_call
                         players_to_act.remove(player)
-                        print(pm.player)
+                        StaticLogger.print(pm.player)
 
                     else:
                         to_amount = pm.all_in()
                         self.pot += to_amount
                         players_to_act.remove(player)
-                        print(pm.player)
+                        StaticLogger.print(pm.player)
 
 
             still_in = self.game.active_players_count()
@@ -380,7 +380,7 @@ class GameManager:
             start = sb_index
 
         order = players[start:] + players[:start]
-        print(f"Порядок: {order}")
+        StaticLogger.print(f"Порядок: {order}")
         return [p for p in order if p.in_hand]
 
     def get_another_player(self, pm:PlayerManager):

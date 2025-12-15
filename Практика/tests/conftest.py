@@ -106,6 +106,23 @@ def test_full_house_triple_wins():
 
     assert compare_hands(hand1, hand2) == 1
 
+def test_two_pairs_win():
+    hand1 = [
+        MockCard("Spade", "A"),
+        MockCard("Heart", "A"),
+        MockCard("Club", "K"),
+        MockCard("Diamond", "7"),
+        MockCard("Spade", "7"),
+    ]
+    hand2 = [
+        MockCard("Spade", "A"),
+        MockCard("Heart", "A"),
+        MockCard("Club", "4"),
+        MockCard("Diamond", "7"),
+        MockCard("Spade", "7"),
+    ]
+
+    assert compare_hands(hand1, hand2) == 1
 
 # =========================
 # Flush

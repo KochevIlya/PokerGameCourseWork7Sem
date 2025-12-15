@@ -1,6 +1,16 @@
 import sys
 import os
 
+from sympy import false
+
+# 1. СНАЧАЛА настройте логгер
+from Практика.Poker.Logger import StaticLogger  # Импортируем только логгер
+StaticLogger.configure("Genetic_bots_experiment.log", 1000, False)
+
+# 2. Проверьте настройки
+print(f"Логгер настроен: файл={StaticLogger._filename}, буфер={StaticLogger._buffer_size}")
+
+# 3. ПОТОМ импортируйте всё остальное
 from Практика.Poker import *
 
 # player_names = ["Ilya", "Stas", "Matvei", "Anton", "Artem", "Alex", "Nikita", "Semen"]
@@ -11,19 +21,18 @@ StaticLogger.configure("Genetic_bots_experiment.log", 1000)
 
 
 
-learning_num_games = 1000
+learning_num_games = 1
 learning_num_rounds = 30
 
 
 num_rounds = 30
-num_games = 10
+num_games = 1
 
 aggressor = SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor")
 tight = SimpleGeneticBot([0.15, 0.05, 0.8], name="Tight")
 bluff = SimpleGeneticBot([0.2, 0.6, 0.2], name="Bluff")
 balanced = SimpleGeneticBot([0.33, 0.33, 0.33], name="Balanced")
 maniac = SimpleGeneticBot([0.45, 0.45, 0.1], name="Maniac")
-
 tactics = [
     aggressor,
     tight,

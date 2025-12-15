@@ -1,7 +1,7 @@
 from itertools import combinations
 from .poker_rules import best_hand, categorize_hand
 from .Player import Player
-
+from .Logger import *
 
 
 
@@ -30,24 +30,24 @@ class PlayerManager:
         Вызывается из GameManager.
         """
 
-        print(f"\nИгрок {self.player.name}")
-        print(f"Ваши карты: {self.player.hole_cards}")
-        print(f"Текущая ставка: {self.player.bet}, стек: {self.player.stack}")
-        print(f"На столе ставка {current_bet}. Минимальный рейз: {min_raise}")
-        print(f"Ваша лучшая комбинация: {self.player.best_hand}")
+        StaticLogger.print(f"\nИгрок {self.player.name}")
+        StaticLogger.print(f"Ваши карты: {self.player.hole_cards}")
+        StaticLogger.print(f"Текущая ставка: {self.player.bet}, стек: {self.player.stack}")
+        StaticLogger.print(f"На столе ставка {current_bet}. Минимальный рейз: {min_raise}")
+        StaticLogger.print(f"Ваша лучшая комбинация: {self.player.best_hand}")
 
-        print("Ваш выбор:")
+        StaticLogger.print("Ваш выбор:")
         for code, name in self.DECISIONS.items():
-            print(f"{code} — {name}")
+            StaticLogger.print(f"{code} — {name}")
 
         while True:
             try:
                 choice = int(input("Введите номер действия: "))
                 if choice in self.DECISIONS:
                     break
-                print("Неверный ввод.")
+                StaticLogger.print("Неверный ввод.")
             except ValueError:
-                print("Введите число.")
+                StaticLogger.print("Введите число.")
 
         decision = self.DECISIONS[choice]
         self.player.set_decision(decision)

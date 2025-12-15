@@ -6,6 +6,7 @@ import random
 from .PlayerManager import PlayerManager
 from .HandCalculator import HandCalculator
 from .NeuralAgent import *
+from .Logger import *
 
 STAGES ={ "preflop": 0, "flop": 1, "turn": 2, "river": 3, }
 ACTIONS = { 0 : "fold", 1 : "raise", 2 : "call", }
@@ -52,11 +53,11 @@ class NeuralAgentManager(PlayerManager):
         self.last_state = state_vector
         self.last_action = action_idx
 
-        print(f"\nИгрок {self.player.name}")
-        print(f"Ваши карты: {self.player.hole_cards}")
-        print(f"Текущая ставка: {self.player.bet}, стек: {self.player.stack}")
-        print(f"Ваша лучшая комбинация: {self.player.best_hand}")
-        print(f"Ваш выбор: {self.player.decision}")
+        StaticLogger.print(f"\nИгрок {self.player.name}")
+        StaticLogger.print(f"Ваши карты: {self.player.hole_cards}")
+        StaticLogger.print(f"Текущая ставка: {self.player.bet}, стек: {self.player.stack}")
+        StaticLogger.print(f"Ваша лучшая комбинация: {self.player.best_hand}")
+        StaticLogger.print(f"Ваш выбор: {self.player.decision}")
         return self.player.decision
 
     def build_state_vector(self, current_bet_normalized, current_stack_normalized, pot_normalize, community_cards, opponents_decision_value,

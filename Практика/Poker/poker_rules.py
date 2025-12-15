@@ -126,7 +126,7 @@ def compare_hands(hand1, hand2):
             h1_cmp_h2 = h1_twop[0].compare(h2_twop[0])  # first pair
             if h1_cmp_h2 == 0:
                 cmp = h1_twop[2].compare(h2_twop[2])  # second pair
-                if cmp != 0:
+                if cmp == 0:
                     # compare kicker
                     k1, k2 = None, None
                     for c in hand1:
