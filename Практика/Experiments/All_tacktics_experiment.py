@@ -1,9 +1,25 @@
 from Практика.Poker import *
 
+'''
+results of the experiment:
+
+results = {
+    aggressor : 398,
+    tight : 8,
+    bluff : 240,
+    balanced : 148,
+    maniac : 212,
+}
+'''
+
+
+
+
 # player_names = ["Ilya", "Stas", "Matvei", "Anton", "Artem", "Alex", "Nikita", "Semen"]
 # player_names = ["Ilya", "Stas"]
 # player_managers = []
 StaticLogger.configure("Tactics_experiment.log", 1000)
+
 
 
 learning_num_games = 50
@@ -19,13 +35,8 @@ bluff = SimpleGeneticBot([0.2, 0.6, 0.2], name="Bluff")
 balanced = SimpleGeneticBot([0.33, 0.33, 0.33], name="Balanced")
 maniac = SimpleGeneticBot([0.45, 0.45, 0.1], name="Maniac")
 
-# players = [
-#         SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor"),
-#         SimpleGeneticBot([0.15, 0.05, 0.8], name="Tight"),
-#         SimpleGeneticBot([0.2, 0.6, 0.2], name="Bluff"),
-#         SimpleGeneticBot([0.33, 0.33, 0.33], name="Balanced"),
-#         SimpleGeneticBot([0.45, 0.45, 0.1], name="Maniac"),
-#     ]
+
+
 
 tactics = [
     aggressor,

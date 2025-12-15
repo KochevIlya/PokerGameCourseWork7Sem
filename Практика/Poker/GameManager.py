@@ -120,36 +120,28 @@ class GameManager:
 
             if isinstance(pm, NeuralAgentManager):
 
+                current_stack = player.get_stack()
 
-
-                folded_player = pm.player
-                folder_strength = self.pm[folded_player].update_best_hand(self.table)
-
-                winner_player = winners[0]
-                winner_strength = winner_player.best_hand
-
-                final_reward = -1 * folded_player.get_bet() / self.game.initial_stack / self.num_players
-
-
-                if player.in_hand:
-                    if player in winners:
-                        final_reward = 1 * (self.pot - player.get_bet()) / self.game.initial_stack / self.num_players
-
-
+                if player.in_hand and player in winners:
+                    net_profit = self.pot - player.get_bet()
                 else:
-                    if  compare_hands(folder_strength, winner_strength) != 2:
-                        # BAD FOLD: У нас карты были лучше, чем у того, кто забрал банк!
-                        StaticLogger.print(f"Bot {folded_player.name} FOLDED winning hand! Punishing.")
-                        final_reward -= 0.5
-                    else:
-                        final_reward += 0.05
+                    net_profit = -player.get_bet()
+
+                final_reward = net_profit / (self.game.initial_stack) / self.num_players
 
 
-                s, a, _, s_next, _ = pm.episode_memory[-1]
-                pm.episode_memory[-1] = (s, a, final_reward, s_next, True)
-                self.pm[player].remember_episode(final_reward)
+
+                if pm.episode_memory:
+
+                    s, a, r_step, s_next, _ = pm.episode_memory[-1]
 
 
+                    final_reward_for_step = r_step + final_reward
+
+                    pm.episode_memory[-1] = (s, a, final_reward_for_step, s_next, True)
+
+
+                    self.pm[player].remember_episode(final_reward)
 
                 self.pm[player].train_experience_replay()
 
@@ -250,6 +242,7 @@ class GameManager:
 
                 elif isinstance(pm, NeuralAgentManager):
 
+
                     next_state = pm.build_state_vector(
                         current_bet_normalized=self.current_bet / self.game.initial_stack / self.num_players,
                         current_stack_normalized=player.get_stack() / self.game.initial_stack / self.num_players,
@@ -258,10 +251,15 @@ class GameManager:
                         opponents_decision_value=(self.current_decision_value * self.current_num_bets - pm.decision_value * pm.num_bets) / (self.current_num_bets - pm.num_bets) if (self.current_num_bets - pm.num_bets) != 0 else 0 ,
                         stage=stage
                     )
+                    step_reward = 0.0
                     pm.ask_decision(next_state)
 
+                    if pm.player.decision == "raise" or pm.player.decision == "call":
+
+                        step_reward = 0.001
+
                     pm.episode_memory.append(
-                        (pm.last_state, pm.last_action, 0.0, next_state, False)
+                        (pm.last_state, pm.last_action, step_reward, next_state, False)
                     )
 
                 elif isinstance(pm, PlayerManager):

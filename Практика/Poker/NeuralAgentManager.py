@@ -29,12 +29,8 @@ class NeuralAgentManager(PlayerManager):
         return torch.argmax(q_values).item()
 
     def remember_episode(self, final_reward):
-        # 1. Распределяем награду по шагам текущей раздачи и кидаем в ОБЩИЙ буфер
         for s, a, _, s_next, done in self.player.get_memory():
-            # Тут можно добавить затухание награды, но для начала просто final_reward
             self.replay_buffer.append((s, a, final_reward, s_next, done))
-
-        # Очищаем память текущей раздачи
         self.player.set_memory([])
 
 
@@ -121,3 +117,58 @@ class NeuralAgentManager(PlayerManager):
     def decay_epsilon(self):
         if self.player.epsilon > self.player.epsilon_min:
             self.player.epsilon *= self.player.epsilon_decay
+
+    def save_model(self, filename="neural_agent.pth", save_dir="models"):
+        """
+        Сохраняет веса модели, оптимизатора и другие параметры агента
+        """
+
+        os.makedirs(save_dir, exist_ok=True)
+
+        filepath = os.path.join(save_dir, filename)
+
+        checkpoint = {
+            'model_state_dict': self.player.model.state_dict(),
+            'target_net_state_dict': self.player.target_net.state_dict(),
+            'optimizer_state_dict': self.player.optimizer.state_dict(),
+            'epsilon': self.player.epsilon,
+            'memory': list(self.player.memory),  # Преобразуем deque в list для сохранения
+            'stack': self.player.stack,
+        }
+
+        torch.save(checkpoint, filepath)
+
+        print(f"Модель сохранена в {filepath}")
+        return filepath
+
+    def load_model(self, filename="neural_agent.pth", save_dir="models"):
+        """
+        Загружает веса модели и параметры агента
+        """
+        filepath = os.path.join(save_dir, filename)
+
+        if not os.path.exists(filepath):
+            print(f"Файл {filepath} не найден!")
+            return False
+
+        try:
+            checkpoint = torch.load(filepath)
+
+            # Загружаем состояние моделей
+            self.player.model.load_state_dict(checkpoint['model_state_dict'])
+            self.player.target_net.load_state_dict(checkpoint['target_net_state_dict'])
+            self.player.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+            # Восстанавливаем другие параметры
+            self.player.epsilon = checkpoint.get('epsilon', self.player.epsilon)
+            self.player.memory = deque(checkpoint.get('memory', []), maxlen=self.player.memory.maxlen)
+            self.player.stack = checkpoint.get('stack', self.player.stack)
+
+            StaticLogger.print(f"Модель загружена из {filepath}")
+            StaticLogger.print(f"Текущий epsilon: {self.player.epsilon}")
+            StaticLogger.print(f"Размер памяти: {len(self.player.memory)}")
+            return True
+
+        except Exception as e:
+            StaticLogger.print(f"Ошибка при загрузке модели: {e}")
+            return False
