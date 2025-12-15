@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import random
+from collections import deque
 from .PlayerManager import PlayerManager
 from .HandCalculator import HandCalculator
 from .NeuralAgent import *
@@ -15,15 +16,28 @@ class NeuralAgentManager(PlayerManager):
     def __init__(self, player:NeuralAgent):
         super().__init__(player)
         self.episode_memory = []  # <-- ВАЖНО
-
+        self.replay_buffer = deque(maxlen=10000)
+        self.batch_size = 64
+        self.current_episode_memory = []
 
     def act(self, state):
         if random.random() < self.player.epsilon:
             return int(torch.randint(0, 3, (1,)).item())
 
         state = torch.tensor(state, dtype=torch.float32)
-        q_values = self.player.model(state)
+        with torch.no_grad():
+            q_values = self.player.model(state)
         return torch.argmax(q_values).item()
+
+    def remember_episode(self, final_reward):
+        # 1. Распределяем награду по шагам текущей раздачи и кидаем в ОБЩИЙ буфер
+        for s, a, _, s_next, done in self.current_episode_memory:
+            # Тут можно добавить затухание награды, но для начала просто final_reward
+            self.replay_buffer.append((s, a, final_reward, s_next, done))
+
+        # Очищаем память текущей раздачи
+        self.current_episode_memory = []
+
 
     def train_step(self, state, action, reward, next_state, done):
         state = torch.tensor(state, dtype=torch.float32)
@@ -43,6 +57,45 @@ class NeuralAgentManager(PlayerManager):
         self.player.optimizer.zero_grad()
         loss.backward()
         self.player.optimizer.step()
+
+    def train_experience_replay(self):
+        # Если в буфере мало данных, не учимся (ждем накопления)
+        if len(self.replay_buffer) < self.batch_size:
+            return
+
+        # 1. Берем СЛУЧАЙНЫЙ пакет (вот она, магия!)
+        batch = random.sample(self.replay_buffer, self.batch_size)
+
+        # Распаковываем пакет
+        states, actions, rewards, next_states, dones = zip(*batch)
+
+        states = torch.tensor(states, dtype=torch.float32)
+        actions = torch.tensor(actions, dtype=torch.long).unsqueeze(1)
+        rewards = torch.tensor(rewards, dtype=torch.float32)
+        next_states = torch.tensor(next_states, dtype=torch.float32)
+        dones = torch.tensor(dones, dtype=torch.float32)
+
+        # 2. Считаем Q_current (через Policy Net)
+        # gather выбирает значения только для совершенных действий
+        q_values = self.player.model(states).gather(1, actions).squeeze(1)
+
+        # 3. Считаем Q_target (через Target Net!)
+        with torch.no_grad():
+            next_q_values = self.player.target_net(next_states).max(1)[0]
+            # Формула Беллмана
+            expected_q_values = rewards + (self.player.gamma * next_q_values * (1 - dones))
+
+        # 4. Считаем Loss и делаем шаг
+        loss = (q_values - expected_q_values) ** 2
+        loss = loss.mean()
+
+        self.player.optimizer.zero_grad()
+        loss.backward()
+        self.player.optimizer.step()
+
+    def update_target_network(self):
+        # Копируем веса из policy в target
+        self.player.target_net.load_state_dict(self.player.model.state_dict())
 
     def ask_decision(self, state_vector:list):
 

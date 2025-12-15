@@ -26,6 +26,9 @@ class NeuralAgent(Player):
     def __init__(self, name="NeuralAgent", stack=100, state_size=7, action_size=3):
         super().__init__(name, stack)
         self.model = DQN(state_size, action_size)
+        self.target_net = DQN(state_size, action_size)
+        self.target_net.load_state_dict(self.model.state_dict())  # Копируем веса
+        self.target_net.eval()
         self.optimizer = optim.Adam(self.model.parameters(), lr=3e-4)
         self.gamma = 0.99
         self.epsilon = 0.2  # стартуем с полного рандома

@@ -43,6 +43,8 @@ class GameManager:
         self.pot = 0.0
         self.current_decision_value = 0.0
         self.current_num_bets = 0
+        self.games_count = 0
+        self.games_not_trained = 30
 
     def start_game(self, num_rounds):
         for i in range(num_rounds):
@@ -68,6 +70,8 @@ class GameManager:
         """
         Основной игровой цикл одной раздачи.
         """
+        self.games_count += 1
+        StaticLogger.print(f"Gmae number: {self.games_count}\n")
         self.current_decision_value = 0.0
         self.current_num_bets = 0
 
@@ -155,8 +159,20 @@ class GameManager:
 
                 s, a, _, s_next, _ = pm.episode_memory[-1]
                 pm.episode_memory[-1] = (s, a, final_reward, s_next, True)
-                for transition in pm.episode_memory:
-                    pm.train_step(*transition)
+                self.pm[player].remember_episode(final_reward)
+                # for transition in pm.episode_memory:
+                #     pm.train_step(*transition)
+
+            for player in self.game.players:
+                if isinstance(self.pm[player], NeuralAgentManager):
+                    self.pm[player].train_experience_replay()
+
+            if self.games_count % self.games_not_trained == 0:
+                for player in self.game.players:
+                    if isinstance(self.pm[player], NeuralAgentManager):
+                        self.pm[player].update_target_network()
+                        StaticLogger.print("Target Network updated!")
+
 
     def _analyze_fold_decision(self, folded_player: Player, pm, winners):
         """
