@@ -70,46 +70,37 @@ def compare_hands(hand1, hand2):
     elif hand_categories.index(h1_category) > hand_categories.index(h2_category):
         return 2
     else:
-        # both hands same category
         if h1_category == "RoyalFlush":
-            return 0  # royal flush is the highest hand
+            return 0
         elif h1_category == "StraightFlush" or h1_category == "Straight" or h1_category == "Flush":
-            # hands sorted largest to smallest card, therefore only need to compare
-            # the first card in list to determine which hand is better for five card hands
             return hand1[0].compare(hand2[0])
-        elif h1_category == "FourofaKind":  # not a five card hand, must compare the quad then kicker
-            # first card could be kicker or part of the quad,
-            # so compare the second card which is always part of the quad
+        elif h1_category == "FourofaKind":
             h1_cmp_h2 = hand1[1].compare(hand2[1])
             if h1_cmp_h2 == 0:
                 if hand1[0] == hand1[1]:
-                    return hand1[-1].compare(hand2[-1])  # the last card was the kicker
+                    return hand1[-1].compare(hand2[-1])
                 else:
-                    return hand1[0].compare(hand2[0])  # the first card was the kicker
+                    return hand1[0].compare(hand2[0])
             else:
                 return h1_cmp_h2
-        elif h1_category == "FullHouse":  # not a five card hand, must compare the triple then pair
-            # third card is always part of the triple regardless of whether pair is larger or smaller
+        elif h1_category == "FullHouse":
             h1_cmp_h2 = hand1[2].compare(hand2[2])
             if h1_cmp_h2 == 0:
                 if hand1[1] == hand1[2]:
-                    return hand1[-1].compare(hand2[-1])  # the last two are the pair
+                    return hand1[-1].compare(hand2[-1])
                 else:
-                    return hand1[0].compare(hand2[0])  # the first two are the pair
+                    return hand1[0].compare(hand2[0])
             else:
                 return h1_cmp_h2
         elif h1_category == "ThreeofaKind":
-            # third card is always part of the triple regardless of other two
             h1_cmp_h2 = hand1[2].compare(hand2[2])
             if h1_cmp_h2 == 0:
                 if hand1[1] == hand1[2]:
-                    # triple is last 3 cards
                     match hand1[0].compare(hand2[0]):
                         case 1: return 1
                         case 2: return 2
                         case 0: return hand1[1].compare(hand2[1])
                 else:
-                    # triple is first 3 cards
                     match hand1[-2].compare(hand2[-2]):
                         case 1:
                             return 1
@@ -123,11 +114,10 @@ def compare_hands(hand1, hand2):
             b, h1_twop = is_twopair(hand1)
             b, h2_twop = is_twopair(hand2)
 
-            h1_cmp_h2 = h1_twop[0].compare(h2_twop[0])  # first pair
+            h1_cmp_h2 = h1_twop[0].compare(h2_twop[0])
             if h1_cmp_h2 == 0:
-                cmp = h1_twop[2].compare(h2_twop[2])  # second pair
+                cmp = h1_twop[2].compare(h2_twop[2])
                 if cmp == 0:
-                    # compare kicker
                     k1, k2 = None, None
                     for c in hand1:
                         if c not in h1_twop:
@@ -145,7 +135,7 @@ def compare_hands(hand1, hand2):
         elif h1_category == "Pair":
             b, h1_pair = is_pair(hand1)
             b, h2_pair = is_pair(hand2)
-            h1_cmp_h2 = h1_pair[0].compare(h2_pair[0])  # compare pairs
+            h1_cmp_h2 = h1_pair[0].compare(h2_pair[0])
             if h1_cmp_h2 == 0:
                 for l, r in zip(hand1, hand2):
                     cmp = l.compare(r)

@@ -67,20 +67,13 @@ class NeuralAgentManager(PlayerManager):
         next_states = torch.tensor(next_states, dtype=torch.float32)
         dones = torch.tensor(dones, dtype=torch.float32)
 
-        # 2. Считаем Q_current (через Policy Net)
-        # gather выбирает значения только для совершенных действий
         q_values = self.player.model(states).gather(1, actions).squeeze(1)
 
-        # 3. Считаем Q_target (через Target Net!)
         with torch.no_grad():
-            # 1. Policy Net выбирает действие A' для S'
             next_action_q_model = self.player.model(next_states).max(1)[1].unsqueeze(1)
-            # 2. Target Net оценивает это действие A'
             next_q_values = self.player.target_net(next_states).gather(1, next_action_q_model).squeeze(1)
-            # Формула Беллмана
             expected_q_values = rewards + (self.player.gamma * next_q_values * (1 - dones))
 
-        # 4. Считаем Loss и делаем шаг
         loss = (q_values - expected_q_values) ** 2
         loss = loss.mean()
 
@@ -156,13 +149,10 @@ class NeuralAgentManager(PlayerManager):
 
         try:
             checkpoint = torch.load(filepath)
-
-            # Загружаем состояние моделей
             self.player.model.load_state_dict(checkpoint['model_state_dict'])
             self.player.target_net.load_state_dict(checkpoint['target_net_state_dict'])
             self.player.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
-            # Восстанавливаем другие параметры
             self.player.epsilon = checkpoint.get('epsilon', self.player.epsilon)
             self.player.memory = deque(checkpoint.get('memory', []), maxlen=self.player.memory.maxlen)
             self.player.stack = checkpoint.get('stack', self.player.stack)

@@ -96,8 +96,8 @@ class GameManager:
         for player in self.game.players:
             self.pm[player].num_bets = 0
             self.pm[player].decision_value = 0
-            # if isinstance(player, NeuralACAgent) and self.games_count % self.num_games_safe_model == 0 and self.round == 0:
-            #     self.pm[player].save_ac_agent()
+            if isinstance(player, NeuralACAgent) and self.games_count % self.num_games_safe_model == 0 and self.round == 0:
+                self.pm[player].save_ac_agent()
 
         self._betting_round(stage="preflop")
         

@@ -1,4 +1,3 @@
-from .RandomPlayer import *
 from .PlayerManager import *
 import random
 

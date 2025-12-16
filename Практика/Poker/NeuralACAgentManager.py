@@ -18,8 +18,8 @@ class NeuralACAgentManager(PlayerManager):
     def __init__(self, player:NeuralAgent):
         super().__init__(player)
         self.episode_data = []
-        self.episode_buffer = []  # Буфер для полных эпизодов
-        self.update_frequency = 50  # Обновлять веса каждые 50 раздач
+        self.episode_buffer = []
+        self.update_frequency = 50
         self.replay_buffer = deque(maxlen=10000)
         self.batch_size = 64
 
@@ -30,44 +30,28 @@ class NeuralACAgentManager(PlayerManager):
         Сохраняет данные для on-policy обучения.
         """
 
-
-        # 1. Конвертация состояний в тензоры
-        # unsqueeze(0) добавляет размерность батча=1
         s_actor_tensor = torch.tensor(s_actor, dtype=torch.float32).unsqueeze(0)
         s_critic_tensor = torch.tensor(s_critic, dtype=torch.float32).unsqueeze(0)
 
-        # 2. Forward pass: Actor выбирает, Critic оценивает
-        # action_logits - логиты (необработанные оценки) для действий [1, action_size]
-        # value - оценка V(s) [1, 1]
-        self.player.ac_net.eval()  # Переводим сеть в режим исполнения
+        self.player.ac_net.eval()
         with torch.no_grad():
             action_logits, value = self.player.ac_net(s_actor_tensor, s_critic_tensor)
-        self.player.ac_net.train()  # Возвращаем в режим обучения
+        self.player.ac_net.train()
 
         if can_check:
             action_logits[0, 0] = -1e9
 
-        # 3. Сэмплирование действия (Exploration в A2C)
-        # Создаем категориальное распределение на основе логитов Actor'а
         policy_dist = distributions.Categorical(logits=action_logits)
 
-        # Выбираем действие путем сэмплирования
         action_tensor = policy_dist.sample()
         action_idx = action_tensor.item()
 
-        # 4. Сбор данных для обучения
-
-        # Логарифм вероятности выбранного действия
         log_prob = policy_dist.log_prob(action_tensor).item()
 
-        # Оценка состояния (V(s)) от Critic'а
         value_estimate = value.item()
 
-        # Сохраняем все данные, необходимые для расчета Advantage и Loss
-        # (S_actor, S_critic, Action, Log_Prob, V(s))
         self.episode_data.append((s_actor, s_critic, action_idx, log_prob, value_estimate))
 
-        # Сохраняем последнее состояние/действие для логирования в ask_decision
         self.last_s_actor = s_actor
         self.last_s_critic = s_critic
         self.last_action_idx = action_idx
@@ -84,25 +68,16 @@ class NeuralACAgentManager(PlayerManager):
         if not self.episode_data:
             return
 
-        # 1. Разбираем эпизод
-        # Нам нужны только состояния и действия.
-        # Старые log_probs и values нам не нужны, мы их пересчитаем в _update_network свежими.
         s_actors, s_critics, actions, _, _ = zip(*self.episode_data)
 
-        # 2. Расчет Дисконтированных Наград (Returns)
-        # Идем с конца эпизода к началу
         returns = []
         R = final_reward
 
-        # Если вы хотите учитывать Value последнего состояния при незавершенном эпизоде - это сложнее.
-        # Но для покера (эпизодическая задача) обычно R в конце достаточно.
-
         for _ in reversed(range(len(self.episode_data))):
-            returns.insert(0, R)  # Вставляем в начало списка
+            returns.insert(0, R)
             R = R * self.player.gamma
 
-        # 3. Сохранение в общий буфер
-        # Мы сохраняем кортежи: (S_actor, S_critic, Action, Return)
+
         for i in range(len(s_actors)):
             self.episode_buffer.append((
                 s_actors[i],
@@ -111,12 +86,9 @@ class NeuralACAgentManager(PlayerManager):
                 returns[i]
             ))
 
-        # Очищаем данные текущего эпизода, так как они перенесены в буфер
         self.episode_data.clear()
 
-        # 4. Проверка размера буфера
-        # Если накопили достаточно данных (например, 1000 шагов или 64 полных игры), учимся
-        BATCH_SIZE = 1024  # Можно настроить (рекомендую от 512 до 2048)
+        BATCH_SIZE = 64
 
         if len(self.episode_buffer) >= BATCH_SIZE:
             self._update_network()
@@ -128,70 +100,46 @@ class NeuralACAgentManager(PlayerManager):
         if not self.episode_buffer:
             return
 
-        # 1. Подготовка батча
-        # Распаковываем буфер. zip(*...) превращает список кортежей в кортеж списков
         s_actors, s_critics, actions, returns = zip(*self.episode_buffer)
 
-        # Конвертируем в тензоры. Это теперь большие матрицы [Batch_Size, Features]
         s_actors = torch.tensor(s_actors, dtype=torch.float32)
         s_critics = torch.tensor(s_critics, dtype=torch.float32)
         actions = torch.tensor(actions, dtype=torch.long)
         returns = torch.tensor(returns, dtype=torch.float32)
 
-        # Очищаем буфер сразу после извлечения (on-policy алгоритм обычно очищает буфер)
         self.episode_buffer.clear()
 
-        # 2. Forward Pass (Повторный прогон через сеть)
-        # Мы прогоняем старые состояния через ТЕКУЩУЮ сеть, чтобы получить градиенты.
         self.player.ac_net.train()
 
-        # Получаем логиты и V(s) для всего батча сразу
         action_logits, values = self.player.ac_net(s_actors, s_critics)
 
-        # values обычно имеет форму [Batch, 1], а returns [Batch].
-        # Нужно убрать лишнюю размерность, чтобы считать Loss корректно.
         values = values.squeeze(1)
 
-        # 3. Расчет метрик для Loss
-
-        # Создаем распределение для всего батча
         policy_dist = distributions.Categorical(logits=action_logits)
 
-        # Получаем log_prob для тех действий, которые мы реально совершили
         log_probs = policy_dist.log_prob(actions)
 
-        # Считаем энтропию (меру случайности) для регуляризации
+
         dist_entropy = policy_dist.entropy().mean()
 
-        # 4. Вычисление Advantage (Преимущества)
-        # Advantage = (Реальная награда) - (Предсказание критика)
-        # detach() нужен, чтобы градиент от Actor Loss не тек в Критика (хотя в общей сети это спорно, но стандартно - detach)
         advantage = returns - values.detach()
 
-        # 5. Функция потерь (Loss)
-
-        # Actor Loss: пытаемся увеличить вероятность действий с высоким Advantage
         actor_loss = -(log_probs * advantage).mean()
 
-        # Critic Loss: MSE между предсказанной ценностью и реальной наградой
         critic_loss = F.mse_loss(values, returns)
 
-        # Общий Loss
-        # Коэффициенты 0.5 и 0.01 - это гиперпараметры.
-        # 0.01 для энтропии не дает модели слишком быстро "застрять" в одной стратегии.
+
         total_loss = actor_loss + 0.5 * critic_loss - 0.01 * dist_entropy
 
-        # 6. Оптимизация (Backpropagation)
         self.player.optimizer.zero_grad()
         total_loss.backward()
 
-        # Градиентный клиппинг (обязательно для A2C/PPO)
         torch.nn.utils.clip_grad_norm_(self.player.ac_net.parameters(), max_norm=0.5)
 
         self.player.optimizer.step()
 
-        # (Опционально) Логирование потерь, чтобы видеть прогресс
-        # StaticLogger.print(f"Update: Loss={total_loss.item():.4f}, Actor={actor_loss.item():.4f}, Critic={critic_loss.item():.4f}")
+
+        StaticLogger.print(f"Update: Loss={total_loss.item():.4f}, Actor={actor_loss.item():.4f}, Critic={critic_loss.item():.4f}")
 
     def ask_decision(self, s_actor: list, s_critic: list, can_check=False):
         """
@@ -199,18 +147,15 @@ class NeuralACAgentManager(PlayerManager):
         устанавливает решение игрока и логирует ситуацию.
         """
 
-        # 1. Получаем индекс действия из Actor-Critic
         action_idx = self.act(s_actor, s_critic, can_check)
 
-        # 2. Преобразуем индекс в строковое решение (fold, raise, call)
         action = ACTIONS[action_idx]
         self.player.set_decision(action)
 
-        # 3. Логирование (согласно вашему исходному коду)
         StaticLogger.print(f"\nИгрок {self.player.name}")
         StaticLogger.print(f"Ваши карты: {self.player.hole_cards}")
         StaticLogger.print(f"Текущая ставка: {self.player.bet}, стек: {self.player.stack}")
-        # Обновление: Убедитесь, что best_hand обновлен до вызова этого метода
+
         StaticLogger.print(f"Ваша лучшая комбинация: {self.player.best_hand}")
         StaticLogger.print(f"Ваш выбор: {self.player.decision}")
 
@@ -230,7 +175,6 @@ class NeuralACAgentManager(PlayerManager):
             stage,
             current_decision_value,
             self.decision_value / self.num_bets,
-            active_opponents_count
         ]
 
         all_hand_strengths = []
@@ -246,7 +190,7 @@ class NeuralACAgentManager(PlayerManager):
 
 
 
-    def save_ac_agent(self, filename="neural_ac_agent.pth", save_dir="models", save_memory=True):
+    def save_ac_agent(self, filename="neural_ac_agent_small_batch.pth", save_dir="models", save_memory=True):
         """
         Сохраняет состояние NeuralACAgent (Actor-Critic)
 
@@ -257,19 +201,15 @@ class NeuralACAgentManager(PlayerManager):
             save_memory: сохранять ли память (может быть большим)
         """
         try:
-            # Создаем директорию, если её нет
+
             os.makedirs(save_dir, exist_ok=True)
 
-            # Формируем полный путь
             filepath = os.path.join(save_dir, filename)
 
-            # Подготавливаем данные для сохранения
             checkpoint = {
-                # Состояние модели
                 'ac_net_state_dict': self.player.ac_net.state_dict(),
                 'optimizer_state_dict': self.player.optimizer.state_dict(),
 
-                # Гиперпараметры
                 'gamma': self.player.gamma,
                 'actor_size': self.player.ac_net.actor_net[0].in_features if hasattr(self.player, 'ac_net') else 8,
                 'critic_size': self.player.ac_net.critic_net[0].in_features if hasattr(self.player, 'ac_net') else 9,
@@ -283,12 +223,10 @@ class NeuralACAgentManager(PlayerManager):
                 'model_type': 'ActorCritic',
             }
 
-            # Сохраняем память если нужно
             if save_memory and hasattr(self.player, 'memory'):
                 checkpoint['memory'] = list(self.player.memory)
                 checkpoint['memory_size'] = len(self.player.memory)
 
-            # Сохраняем
             torch.save(checkpoint, filepath)
             print(f"[✅] NeuralACAgent '{self.player.name}' сохранен в {filepath}")
             print(f"    Память: {checkpoint.get('memory_size', 0)} записей")
@@ -318,30 +256,22 @@ class NeuralACAgentManager(PlayerManager):
                 print(f"[❌] Файл {filepath} не найден!")
                 return False
 
-            # Загружаем checkpoint
             checkpoint = torch.load(filepath, map_location=torch.device('cpu'))
 
-            # Проверяем тип модели
             if checkpoint.get('model_type') != 'ActorCritic':
                 print("[⚠️] Внимание: Загружается не Actor-Critic модель")
 
-            # Загружаем состояние модели
             self.player.ac_net.load_state_dict(checkpoint['ac_net_state_dict'], strict=strict)
 
-            # Загружаем оптимизатор
             if 'optimizer_state_dict' in checkpoint:
                 self.player.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
-            # Восстанавливаем гиперпараметры
             if 'gamma' in checkpoint:
                 self.player.gamma = checkpoint['gamma']
-
-            # Восстанавливаем память
             if load_memory and 'memory' in checkpoint and hasattr(self.player, 'memory'):
                 self.player.memory = deque(checkpoint['memory'], maxlen=self.player.memory.maxlen)
                 print(f"    Загружено {len(self.player.memory)} записей в память")
 
-            # Восстанавливаем stack если указан
             if 'stack' in checkpoint:
                 self.player.stack = checkpoint['stack']
 
