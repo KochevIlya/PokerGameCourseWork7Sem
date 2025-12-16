@@ -190,7 +190,7 @@ class NeuralACAgentManager(PlayerManager):
 
 
 
-    def save_ac_agent(self, filename="neural_ac_agent_small_batch.pth", save_dir="models", save_memory=True):
+    def save_ac_agent(self, filename="neural_ac_agent_small_batch_calling_player.pth", save_dir="models", save_memory=True):
         """
         Сохраняет состояние NeuralACAgent (Actor-Critic)
 

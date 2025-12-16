@@ -146,7 +146,6 @@ class GameManager:
                 final_reward = net_profit / self.game.initial_stack / self.num_players
 
                 if pm.episode_data:
-                    # ВЫЗОВ МЕТОДА ОБУЧЕНИЯ
                     pm.train_actor_critic(final_reward)
                     StaticLogger.print("Target Network updated!")
 
