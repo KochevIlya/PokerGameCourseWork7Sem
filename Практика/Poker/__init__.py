@@ -14,3 +14,7 @@ from .BotFabric import BotFabric
 from .NeuralAgent import *
 from .NeuralAgentManager import *
 from .Logger import *
+from .NeuralACAgentManager import *
+from .ActorCritic import *
+from .RandomPlayer import *
+from .RandomPlayerManager import *

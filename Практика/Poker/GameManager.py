@@ -1,5 +1,7 @@
 from . import compare_hands
-from .NeuralAgent import *
+from .RandomPlayer import RandomPlayer
+from .RandomPlayerManager import RandomPlayerManager
+from .NeuralAgent import NeuralAgent
 from .Deck import Deck
 from .PlayerManager import PlayerManager
 from .Game import Game
@@ -10,6 +12,8 @@ from .NeuralAgentManager import *
 from .NeuralAgentManager import *
 from functools import cmp_to_key
 from .Logger import *
+from .NeuralACAgentManager import *
+from .ActorCritic import *
 
 class GameManager:
     """
@@ -34,6 +38,11 @@ class GameManager:
                 self.pm[player] = BotManager(player)
             elif isinstance(player, NeuralAgent):
                 self.pm[player] = NeuralAgentManager(player)
+            elif isinstance(player, NeuralACAgent):
+                self.pm[player] = NeuralACAgentManager(player)
+
+            elif isinstance(player, RandomPlayer):
+                self.pm[player] = RandomPlayerManager(player)
             else:
                 self.pm[player] = PlayerManager(player)
         self.num_players = len(self.game.registered_players)
@@ -122,35 +131,22 @@ class GameManager:
         for player in self.game.players:
             pm = self.pm[player]
 
-            if isinstance(pm, NeuralAgentManager):
+            if isinstance(pm, NeuralACAgentManager):
 
                 current_stack = player.get_stack()
+
+
 
                 if player.in_hand and player in winners:
                     net_profit = self.pot - player.get_bet()
                 else:
                     net_profit = -player.get_bet()
 
-                final_reward = net_profit / (self.game.initial_stack) / self.num_players
+                final_reward = net_profit / self.game.initial_stack / self.num_players
 
-
-
-                if pm.episode_memory:
-
-                    s, a, r_step, s_next, _ = pm.episode_memory[-1]
-
-
-                    final_reward_for_step = r_step + final_reward
-
-                    pm.episode_memory[-1] = (s, a, final_reward_for_step, s_next, True)
-
-
-                    self.pm[player].remember_episode(final_reward)
-
-                self.pm[player].train_experience_replay()
-
-                if self.games_count % self.games_not_trained == 0 and self.round == 0:
-                    self.pm[player].update_target_network()
+                if pm.episode_data:
+                    # ВЫЗОВ МЕТОДА ОБУЧЕНИЯ
+                    pm.train_actor_critic(final_reward)
                     StaticLogger.print("Target Network updated!")
 
         for winner in winners:
@@ -247,22 +243,29 @@ class GameManager:
                         community_cards=self.table.copy()
                     )
 
-                elif isinstance(pm, NeuralAgentManager):
+                elif isinstance(pm, NeuralACAgentManager):
 
-                    next_state = pm.build_state_vector(
-                        current_bet_normalized=self.current_bet / self.game.initial_stack / self.num_players,
-                        current_stack_normalized=player.get_stack() / self.game.initial_stack / self.num_players,
-                        pot_normalize=self.pot / self.game.initial_stack / self.num_players,
+                    all_player_hands = [(p, p.hole_cards) for p in self.game.betting_players]
+
+                    can_check = (self.current_bet == player.bet)
+
+                    s_actor, s_critic = pm.build_state_vectors(
+                        current_bet_normalized=self.current_bet / self.max_chips,
+                        current_stack_normalized=player.get_stack() / self.max_chips,
+                        pot_normalize=self.pot / self.max_chips,
                         community_cards=self.table.copy(),
-                        game_decision_value= self.current_decision_value / self.current_num_bets,
-                        stage=stage
+                        active_opponents_count=self.game.active_players_count() / len(self.game.registered_players),
+                        stage=stage,
+                        all_player_hands=all_player_hands  # Передаем скрытую информацию
                     )
-                    StaticLogger.print(f'State_vector for current situation: {next_state}')
-                    step_reward = 0.0
-                    pm.ask_decision(next_state)
+                    StaticLogger.print(f'S_actor: {s_actor}\nS_critic: {s_critic}')
 
-                    pm.episode_memory.append(
-                        (pm.last_state, pm.last_action, step_reward, next_state, False)
+                    pm.ask_decision(s_actor, s_critic, can_check)
+
+                elif isinstance(pm, RandomPlayerManager):
+                    pm.ask_decision(
+                        current_bet=self.current_bet,
+                        min_raise=self.game.min_bet
                     )
 
                 elif isinstance(pm, PlayerManager):
