@@ -73,7 +73,10 @@ class NeuralAgentManager(PlayerManager):
 
         # 3. Считаем Q_target (через Target Net!)
         with torch.no_grad():
-            next_q_values = self.player.target_net(next_states).max(1)[0]
+            # 1. Policy Net выбирает действие A' для S'
+            next_action_q_model = self.player.model(next_states).max(1)[1].unsqueeze(1)
+            # 2. Target Net оценивает это действие A'
+            next_q_values = self.player.target_net(next_states).gather(1, next_action_q_model).squeeze(1)
             # Формула Беллмана
             expected_q_values = rewards + (self.player.gamma * next_q_values * (1 - dones))
 
@@ -104,14 +107,14 @@ class NeuralAgentManager(PlayerManager):
         StaticLogger.print(f"Ваш выбор: {self.player.decision}")
         return self.player.decision
 
-    def build_state_vector(self, current_bet_normalized, current_stack_normalized, pot_normalize, community_cards, opponents_decision_value,
+    def build_state_vector(self, community_cards, current_bet_normalized, current_stack_normalized, pot_normalize, game_decision_value,
                            stage="preflop"):
         hand_strength = HandCalculator.evaluate_hand_strength(self.player.hole_cards, community_cards)
         stage = STAGES[stage] / len(STAGES)
 
         state_vector = [hand_strength, current_bet_normalized, current_stack_normalized, pot_normalize, stage]
-        state_vector.append(opponents_decision_value)
-        state_vector.append(self.decision_value)
+        state_vector.append(game_decision_value)
+        state_vector.append(self.decision_value / self.num_bets)
         return state_vector
 
     def decay_epsilon(self):

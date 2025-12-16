@@ -33,9 +33,9 @@ class NeuralAgent(Player):
         self.target_net.eval()
         self.optimizer = optim.Adam(self.model.parameters(), lr=3e-4)
         self.gamma = 0.99
-        self.epsilon = 0.8
+        self.epsilon = 1
         self.epsilon_min = 0.02
-        self.epsilon_decay = 0.92
+        self.epsilon_decay = 0.999
         self.memory = deque(maxlen=20000)
 
     def get_memory(self):

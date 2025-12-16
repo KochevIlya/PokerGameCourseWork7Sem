@@ -78,7 +78,11 @@ class GameManager:
         self.current_num_bets = 0
 
         self._post_blinds()
-        
+
+        for player in self.game.players:
+            self.pm[player].num_bets = 0
+            self.pm[player].decision_value = 0
+
         self._betting_round(stage="preflop")
         
         self._deal_flop()
@@ -216,9 +220,7 @@ class GameManager:
         order = self._betting_order(stage)
         players_to_act = set(order)
 
-        for player in active_players:
-            self.pm[player].num_bets = 0
-            self.pm[player].decision_value = 0
+
 
         while players_to_act:
 
@@ -232,7 +234,12 @@ class GameManager:
                     continue
 
                 pm = self.pm[player]
+
+                self.current_num_bets += 1
+                pm.num_bets += 1
+
                 pm.update_best_hand(self.table)
+
                 if  isinstance(pm, BotManager):
                     pm.ask_decision(
                         current_bet=self.current_bet,
@@ -242,21 +249,17 @@ class GameManager:
 
                 elif isinstance(pm, NeuralAgentManager):
 
-
                     next_state = pm.build_state_vector(
                         current_bet_normalized=self.current_bet / self.game.initial_stack / self.num_players,
                         current_stack_normalized=player.get_stack() / self.game.initial_stack / self.num_players,
                         pot_normalize=self.pot / self.game.initial_stack / self.num_players,
                         community_cards=self.table.copy(),
-                        opponents_decision_value=(self.current_decision_value * self.current_num_bets - pm.decision_value * pm.num_bets) / (self.current_num_bets - pm.num_bets) if (self.current_num_bets - pm.num_bets) != 0 else 0 ,
+                        game_decision_value= self.current_decision_value / self.current_num_bets,
                         stage=stage
                     )
+                    StaticLogger.print(f'State_vector for current situation: {next_state}')
                     step_reward = 0.0
                     pm.ask_decision(next_state)
-
-                    if pm.player.decision == "raise" or pm.player.decision == "call":
-
-                        step_reward = 0.001
 
                     pm.episode_memory.append(
                         (pm.last_state, pm.last_action, step_reward, next_state, False)
@@ -269,25 +272,20 @@ class GameManager:
                     )
 
 
-
-
                 if player.decision == "fold":
-                    self.current_num_bets += 1
-                    self.current_decision_value = self.current_decision_value / self.current_num_bets
-                    pm.num_bets += 1
-                    pm.decision_value = pm.decision_value / pm.num_bets
+
+
 
                     pm.fold()
                     players_to_act.remove(player)
                     self.game.remove_player_betting_round(player)
-                    StaticLogger.print(pm.player)
                     continue
 
                 if player.decision == "raise":
-                    self.current_num_bets += 1
-                    self.current_decision_value = self.current_decision_value / self.current_num_bets + 1 / self.current_num_bets
-                    pm.num_bets += 1
-                    pm.decision_value = pm.decision_value / pm.num_bets + 1 / pm.num_bets
+
+                    self.current_decision_value += 1
+
+                    pm.decision_value += 1
 
                     needed = self.current_bet + self.game.min_bet
 
@@ -301,28 +299,26 @@ class GameManager:
 
                         players_to_act = set(order)
                         players_to_act.remove(player)
-                        StaticLogger.print(pm.player)
                         continue
 
                 if player.decision == "call":
-                    self.current_num_bets += 1
-                    self.current_decision_value += self.current_decision_value / self.current_num_bets + 0.5 / self.current_num_bets
-                    pm.num_bets += 1
-                    pm.decision_value = pm.decision_value / pm.num_bets + 0.5 / pm.num_bets
+
+                    self.current_decision_value += 0.5
+
+                    pm.decision_value = 0.5
 
                     needed = self.current_bet
                     if pm.can_apply(needed):
                         to_call = pm.call(needed)
                         self.pot += to_call
                         players_to_act.remove(player)
-                        StaticLogger.print(pm.player)
 
                     else:
                         to_amount = pm.all_in()
                         self.pot += to_amount
                         players_to_act.remove(player)
-                        StaticLogger.print(pm.player)
 
+                StaticLogger.print(pm.player)
 
             still_in = self.game.active_players_count()
             if still_in <= 1:
