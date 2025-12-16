@@ -8,6 +8,7 @@ StaticLogger.configure("Big_Experiment_NN_better_rewards.log", 1000)
 learning_num_games = 50
 learning_num_rounds = 50
 
+num_game_save = 100
 
 num_rounds = 30
 num_games = 30000
@@ -28,7 +29,7 @@ game_winners = []
 # bot_fabric.fit(learning_num_games, learning_num_rounds)
 players = [
         SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor"),
-        NeuralAgent()
+        NeuralACAgent()
     ]
 
 num_wins = { p:0 for p in players}

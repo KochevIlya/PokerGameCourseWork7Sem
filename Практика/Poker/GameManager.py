@@ -14,6 +14,8 @@ from functools import cmp_to_key
 from .Logger import *
 from .NeuralACAgentManager import *
 from .ActorCritic import *
+from .CallingPlayerManager import CallingPlayerManager
+from .CallingPlayer import CallingPlayer
 
 class GameManager:
     """
@@ -26,7 +28,7 @@ class GameManager:
     - определением победителя
     """
 
-    def __init__(self, game: Game):
+    def __init__(self, game: Game, num_games_safe_model = 100):
         """
         game                — объект Game
         """
@@ -40,9 +42,10 @@ class GameManager:
                 self.pm[player] = NeuralAgentManager(player)
             elif isinstance(player, NeuralACAgent):
                 self.pm[player] = NeuralACAgentManager(player)
-
             elif isinstance(player, RandomPlayer):
                 self.pm[player] = RandomPlayerManager(player)
+            elif isinstance(player, CallingPlayer):
+                self.pm[player] = CallingPlayerManager(player)
             else:
                 self.pm[player] = PlayerManager(player)
         self.num_players = len(self.game.registered_players)
@@ -54,6 +57,7 @@ class GameManager:
         self.games_count = 0
         self.games_not_trained = 10
         self.round = 0
+        self.num_games_safe_model = num_games_safe_model
 
     def start_game(self, num_rounds, game_counter=0):
         self.games_count = game_counter
@@ -75,6 +79,7 @@ class GameManager:
                 StaticLogger.print(f'\033[32mВыигрывает(ют): {self.start_round()}\033[0m\n')
         StaticLogger.print(f"Game is over, because of the rounds amount")
         self.game.registered_players.sort(key=lambda p: p.stack, reverse=True)
+
         return self.game.registered_players
 
 
@@ -91,6 +96,8 @@ class GameManager:
         for player in self.game.players:
             self.pm[player].num_bets = 0
             self.pm[player].decision_value = 0
+            # if isinstance(player, NeuralACAgent) and self.games_count % self.num_games_safe_model == 0 and self.round == 0:
+            #     self.pm[player].save_ac_agent()
 
         self._betting_round(stage="preflop")
         
@@ -125,16 +132,10 @@ class GameManager:
         share = self.pot / len(winners)
 
 
-
-
-        winner_hand_strength = winners[0].best_hand
         for player in self.game.players:
             pm = self.pm[player]
 
             if isinstance(pm, NeuralACAgentManager):
-
-                current_stack = player.get_stack()
-
 
 
                 if player.in_hand and player in winners:
@@ -256,6 +257,8 @@ class GameManager:
                         community_cards=self.table.copy(),
                         active_opponents_count=self.game.active_players_count() / len(self.game.registered_players),
                         stage=stage,
+                        current_decision_value=self.current_decision_value / self.current_num_bets,
+
                         all_player_hands=all_player_hands  # Передаем скрытую информацию
                     )
                     StaticLogger.print(f'S_actor: {s_actor}\nS_critic: {s_critic}')

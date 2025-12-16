@@ -28,7 +28,7 @@ game_winners = []
 # bot_fabric.fit(learning_num_games, learning_num_rounds)
 players = [
         SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor"),
-        NeuralAgent()
+        NeuralACAgent()
     ]
 
 num_wins = { p:0 for p in players}

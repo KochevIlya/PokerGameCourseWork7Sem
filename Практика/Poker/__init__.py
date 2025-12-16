@@ -18,3 +18,5 @@ from .NeuralACAgentManager import *
 from .ActorCritic import *
 from .RandomPlayer import *
 from .RandomPlayerManager import *
+from .CallingPlayer import *
+from .CallingPlayerManager import *

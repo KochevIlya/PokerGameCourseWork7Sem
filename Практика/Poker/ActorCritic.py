@@ -39,7 +39,7 @@ class ActorCriticNet(nn.Module):
 
 
 class NeuralACAgent(Player):
-    def __init__(self, name="NeuralAgent", stack=100, actor_size=6, critic_size=7, action_size=3):
+    def __init__(self, name="NeuralAgent", stack=100, actor_size=8, critic_size=9, action_size=3):
         super().__init__(name, stack)
 
         # Передаем два размера в конструктор
@@ -48,7 +48,6 @@ class NeuralACAgent(Player):
         self.gamma = 0.99
 
         self.memory = deque(maxlen=20000)
-        # ... остальные параметры RL (optimizer, gamma) остаются прежними ...
 
     def get_memory(self):
         return self.memory

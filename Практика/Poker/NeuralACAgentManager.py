@@ -76,74 +76,122 @@ class NeuralACAgentManager(PlayerManager):
 
     def train_actor_critic(self, final_reward):
         """
-        Выполняет один шаг обучения A2C для завершенного раунда.
-        Использует S_actor для Actor Loss и S_critic для Critic Loss.
+        Обрабатывает завершенный эпизод:
+        1. Считает дисконтированные награды (Returns).
+        2. Складывает данные в общий буфер (Experience Replay).
+        3. Если буфер полон — запускает обучение.
         """
         if not self.episode_data:
             return
 
-        # 1. Разбираем сохраненные данные эпизода
-        # (S_actor, S_critic, Action, Log_Prob, V(s))
-        s_actors, s_critics, actions, log_probs, values = zip(*self.episode_data)
-
-        # Конвертация в тензоры
-        s_actors = torch.tensor(s_actors, dtype=torch.float32)
-        s_critics = torch.tensor(s_critics, dtype=torch.float32)
-        actions = torch.tensor(actions, dtype=torch.long)
-
-        # values - оценки V(s) из первого прохода (их можно использовать, но лучше пересчитать)
+        # 1. Разбираем эпизод
+        # Нам нужны только состояния и действия.
+        # Старые log_probs и values нам не нужны, мы их пересчитаем в _update_network свежими.
+        s_actors, s_critics, actions, _, _ = zip(*self.episode_data)
 
         # 2. Расчет Дисконтированных Наград (Returns)
-        # Нормализация финальной награды (как в вашем коде)
-
-
+        # Идем с конца эпизода к началу
         returns = []
         R = final_reward
 
-        # Добавляем финальный V(s) последнего состояния для более точного расчета
-        # Если раунд закончился фолдом, используем 0.0, иначе используем V(s) последнего состояния.
-        # В этой упрощенной версии просто используем R.
+        # Если вы хотите учитывать Value последнего состояния при незавершенном эпизоде - это сложнее.
+        # Но для покера (эпизодическая задача) обычно R в конце достаточно.
 
-        # Обратная итерация для расчета дисконтированных наград
-        for i in reversed(range(len(self.episode_data))):
-            # В A2C награда R в основном состоит только из финального выигрыша/проигрыша,
-            # так как промежуточные награды r_step были 0.
-            returns.append(R)
+        for _ in reversed(range(len(self.episode_data))):
+            returns.insert(0, R)  # Вставляем в начало списка
             R = R * self.player.gamma
 
-        returns.reverse()
+        # 3. Сохранение в общий буфер
+        # Мы сохраняем кортежи: (S_actor, S_critic, Action, Return)
+        for i in range(len(s_actors)):
+            self.episode_buffer.append((
+                s_actors[i],
+                s_critics[i],
+                actions[i],
+                returns[i]
+            ))
+
+        # Очищаем данные текущего эпизода, так как они перенесены в буфер
+        self.episode_data.clear()
+
+        # 4. Проверка размера буфера
+        # Если накопили достаточно данных (например, 1000 шагов или 64 полных игры), учимся
+        BATCH_SIZE = 1024  # Можно настроить (рекомендую от 512 до 2048)
+
+        if len(self.episode_buffer) >= BATCH_SIZE:
+            self._update_network()
+
+    def _update_network(self):
+        """
+        Выполняет один шаг градиентного спуска на накопленном батче данных.
+        """
+        if not self.episode_buffer:
+            return
+
+        # 1. Подготовка батча
+        # Распаковываем буфер. zip(*...) превращает список кортежей в кортеж списков
+        s_actors, s_critics, actions, returns = zip(*self.episode_buffer)
+
+        # Конвертируем в тензоры. Это теперь большие матрицы [Batch_Size, Features]
+        s_actors = torch.tensor(s_actors, dtype=torch.float32)
+        s_critics = torch.tensor(s_critics, dtype=torch.float32)
+        actions = torch.tensor(actions, dtype=torch.long)
         returns = torch.tensor(returns, dtype=torch.float32)
 
-        # 3. Получение V(s) (Value Estimates) с помощью Critic Net и S_critic
-        # Получаем V(s) для всех состояний эпизода с текущими весами Critic'а
-        action_logits, critic_values = self.player.ac_net(s_actors, s_critics)
-        critic_values = critic_values.squeeze(1)  # [BatchSize]
+        # Очищаем буфер сразу после извлечения (on-policy алгоритм обычно очищает буфер)
+        self.episode_buffer.clear()
 
-        # 4. Вычисляем log_probs заново для графа
+        # 2. Forward Pass (Повторный прогон через сеть)
+        # Мы прогоняем старые состояния через ТЕКУЩУЮ сеть, чтобы получить градиенты.
+        self.player.ac_net.train()
+
+        # Получаем логиты и V(s) для всего батча сразу
+        action_logits, values = self.player.ac_net(s_actors, s_critics)
+
+        # values обычно имеет форму [Batch, 1], а returns [Batch].
+        # Нужно убрать лишнюю размерность, чтобы считать Loss корректно.
+        values = values.squeeze(1)
+
+        # 3. Расчет метрик для Loss
+
+        # Создаем распределение для всего батча
         policy_dist = distributions.Categorical(logits=action_logits)
-        log_probs_new = policy_dist.log_prob(actions)
 
-        # 4. Вычисляем log_probs заново для графа
-        policy_dist = distributions.Categorical(logits=action_logits)
-        log_probs_new = policy_dist.log_prob(actions)
+        # Получаем log_prob для тех действий, которые мы реально совершили
+        log_probs = policy_dist.log_prob(actions)
 
-        # 5. Loss
-        advantage = returns - critic_values.detach()
-        actor_loss = -(
-                    log_probs_new * advantage).mean()  # advantage без detach, если хотим учить через него (но обычно detach)
-        critic_loss = F.mse_loss(critic_values, returns)
-        entropy_loss = policy_dist.entropy().mean()
+        # Считаем энтропию (меру случайности) для регуляризации
+        dist_entropy = policy_dist.entropy().mean()
 
-        total_loss = actor_loss + 0.5 * critic_loss - 0.1 * entropy_loss
+        # 4. Вычисление Advantage (Преимущества)
+        # Advantage = (Реальная награда) - (Предсказание критика)
+        # detach() нужен, чтобы градиент от Actor Loss не тек в Критика (хотя в общей сети это спорно, но стандартно - detach)
+        advantage = returns - values.detach()
 
-        # 6. Оптимизация
+        # 5. Функция потерь (Loss)
+
+        # Actor Loss: пытаемся увеличить вероятность действий с высоким Advantage
+        actor_loss = -(log_probs * advantage).mean()
+
+        # Critic Loss: MSE между предсказанной ценностью и реальной наградой
+        critic_loss = F.mse_loss(values, returns)
+
+        # Общий Loss
+        # Коэффициенты 0.5 и 0.01 - это гиперпараметры.
+        # 0.01 для энтропии не дает модели слишком быстро "застрять" в одной стратегии.
+        total_loss = actor_loss + 0.5 * critic_loss - 0.01 * dist_entropy
+
+        # 6. Оптимизация (Backpropagation)
         self.player.optimizer.zero_grad()
         total_loss.backward()
-        # Совет: добавьте градиентный клиппинг для стабильности AC в покере
-        torch.nn.utils.clip_grad_norm_(self.player.ac_net.parameters(), max_norm=1.0)
+
+        # Градиентный клиппинг (обязательно для A2C/PPO)
+        torch.nn.utils.clip_grad_norm_(self.player.ac_net.parameters(), max_norm=0.5)
+
         self.player.optimizer.step()
 
-        self.episode_data.clear()
+        # (Опционально) Логирование потерь, чтобы видеть прогресс
+        # StaticLogger.print(f"Update: Loss={total_loss.item():.4f}, Actor={actor_loss.item():.4f}, Critic={critic_loss.item():.4f}")
 
     def ask_decision(self, s_actor: list, s_critic: list, can_check=False):
         """
@@ -169,7 +217,7 @@ class NeuralACAgentManager(PlayerManager):
         return self.player.decision
 
     def build_state_vectors(self, current_bet_normalized, current_stack_normalized, pot_normalize, community_cards,
-                            active_opponents_count ,
+                            active_opponents_count, current_decision_value,
                             stage="preflop", all_player_hands=None):
         hand_strength = HandCalculator.evaluate_hand_strength(self.player.hole_cards, community_cards)
         stage = STAGES[stage] / len(STAGES)
@@ -180,6 +228,8 @@ class NeuralACAgentManager(PlayerManager):
             current_stack_normalized,
             pot_normalize,
             stage,
+            current_decision_value,
+            self.decision_value / self.num_bets,
             active_opponents_count
         ]
 
@@ -194,57 +244,113 @@ class NeuralACAgentManager(PlayerManager):
 
         return s_actor, s_critic
 
-    def save_model(self, filename="neural_agent.pth", save_dir="models"):
+
+
+    def save_ac_agent(self, filename="neural_ac_agent.pth", save_dir="models", save_memory=True):
         """
-        Сохраняет веса модели, оптимизатора и другие параметры агента
+        Сохраняет состояние NeuralACAgent (Actor-Critic)
+
+        Args:
+            self: экземпляр NeuralACAgent
+            filename: имя файла для сохранения
+            save_dir: директория для сохранения
+            save_memory: сохранять ли память (может быть большим)
         """
-
-        os.makedirs(save_dir, exist_ok=True)
-
-        filepath = os.path.join(save_dir, filename)
-
-        checkpoint = {
-            'model_state_dict': self.player.model.state_dict(),
-            'target_net_state_dict': self.player.target_net.state_dict(),
-            'optimizer_state_dict': self.player.optimizer.state_dict(),
-            'epsilon': self.player.epsilon,
-            'memory': list(self.player.memory),  # Преобразуем deque в list для сохранения
-            'stack': self.player.stack,
-        }
-
-        torch.save(checkpoint, filepath)
-
-        print(f"Модель сохранена в {filepath}")
-        return filepath
-
-    def load_model(self, filename="neural_agent.pth", save_dir="models"):
-        """
-        Загружает веса модели и параметры агента
-        """
-        filepath = os.path.join(save_dir, filename)
-
-        if not os.path.exists(filepath):
-            print(f"Файл {filepath} не найден!")
-            return False
-
         try:
-            checkpoint = torch.load(filepath)
+            # Создаем директорию, если её нет
+            os.makedirs(save_dir, exist_ok=True)
 
-            # Загружаем состояние моделей
-            self.player.model.load_state_dict(checkpoint['model_state_dict'])
-            self.player.target_net.load_state_dict(checkpoint['target_net_state_dict'])
-            self.player.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            # Формируем полный путь
+            filepath = os.path.join(save_dir, filename)
 
-            # Восстанавливаем другие параметры
-            self.player.epsilon = checkpoint.get('epsilon', self.player.epsilon)
-            self.player.memory = deque(checkpoint.get('memory', []), maxlen=self.player.memory.maxlen)
-            self.player.stack = checkpoint.get('stack', self.player.stack)
+            # Подготавливаем данные для сохранения
+            checkpoint = {
+                # Состояние модели
+                'ac_net_state_dict': self.player.ac_net.state_dict(),
+                'optimizer_state_dict': self.player.optimizer.state_dict(),
 
-            StaticLogger.print(f"Модель загружена из {filepath}")
-            StaticLogger.print(f"Текущий epsilon: {self.player.epsilon}")
-            StaticLogger.print(f"Размер памяти: {len(self.player.memory)}")
+                # Гиперпараметры
+                'gamma': self.player.gamma,
+                'actor_size': self.player.ac_net.actor_net[0].in_features if hasattr(self.player, 'ac_net') else 8,
+                'critic_size': self.player.ac_net.critic_net[0].in_features if hasattr(self.player, 'ac_net') else 9,
+                'action_size': self.player.ac_net.actor_net[-1].out_features if hasattr(self.player, 'ac_net') else 3,
+
+                # Состояние агента
+                'name': self.player.name,
+                'stack': self.player.stack,
+
+                # Метаданные
+                'model_type': 'ActorCritic',
+            }
+
+            # Сохраняем память если нужно
+            if save_memory and hasattr(self.player, 'memory'):
+                checkpoint['memory'] = list(self.player.memory)
+                checkpoint['memory_size'] = len(self.player.memory)
+
+            # Сохраняем
+            torch.save(checkpoint, filepath)
+            print(f"[✅] NeuralACAgent '{self.player.name}' сохранен в {filepath}")
+            print(f"    Память: {checkpoint.get('memory_size', 0)} записей")
+
+            return filepath
+
+        except Exception as e:
+            print(f"[❌] Ошибка при сохранении агента: {e}")
+            return None
+
+    def load_ac_agent(self, filename="neural_ac_agent.pth", save_dir="models",
+                      load_memory=True, strict=True):
+        """
+        Загружает состояние NeuralACAgent
+
+        Args:
+            self: экземпляр NeuralACAgent для загрузки данных
+            filename: имя файла для загрузки
+            save_dir: директория с файлами
+            load_memory: загружать ли память
+            strict: строгая загрузка весов модели
+        """
+        try:
+            filepath = os.path.join(save_dir, filename)
+
+            if not os.path.exists(filepath):
+                print(f"[❌] Файл {filepath} не найден!")
+                return False
+
+            # Загружаем checkpoint
+            checkpoint = torch.load(filepath, map_location=torch.device('cpu'))
+
+            # Проверяем тип модели
+            if checkpoint.get('model_type') != 'ActorCritic':
+                print("[⚠️] Внимание: Загружается не Actor-Critic модель")
+
+            # Загружаем состояние модели
+            self.player.ac_net.load_state_dict(checkpoint['ac_net_state_dict'], strict=strict)
+
+            # Загружаем оптимизатор
+            if 'optimizer_state_dict' in checkpoint:
+                self.player.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+            # Восстанавливаем гиперпараметры
+            if 'gamma' in checkpoint:
+                self.player.gamma = checkpoint['gamma']
+
+            # Восстанавливаем память
+            if load_memory and 'memory' in checkpoint and hasattr(self.player, 'memory'):
+                self.player.memory = deque(checkpoint['memory'], maxlen=self.player.memory.maxlen)
+                print(f"    Загружено {len(self.player.memory)} записей в память")
+
+            # Восстанавливаем stack если указан
+            if 'stack' in checkpoint:
+                self.player.stack = checkpoint['stack']
+
+            print(f"[✅] NeuralACAgent загружен из {filepath}")
+            print(f"    Имя: {checkpoint.get('name', 'Unknown')}")
+            print(f"    Gamma: {self.player.gamma}")
+
             return True
 
         except Exception as e:
-            StaticLogger.print(f"Ошибка при загрузке модели: {e}")
+            print(f"[❌] Ошибка при загрузке агента: {e}")
             return False
