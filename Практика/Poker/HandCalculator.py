@@ -5,7 +5,7 @@ from .Card import Card
 
 class HandCalculator:
     @staticmethod
-    def evaluate_hand_strength(hero_cards, board_cards, iters=100, seed=42):
+    def evaluate_hand_strength(hero_cards, board_cards, iters=200, seed=42):
 
         random.seed(seed)
 

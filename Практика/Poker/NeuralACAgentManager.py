@@ -88,7 +88,7 @@ class NeuralACAgentManager(PlayerManager):
 
         self.episode_data.clear()
 
-        BATCH_SIZE = 64
+        BATCH_SIZE = 128
 
         if len(self.episode_buffer) >= BATCH_SIZE:
             self._update_network()
@@ -190,7 +190,7 @@ class NeuralACAgentManager(PlayerManager):
 
 
 
-    def save_ac_agent(self, filename="neural_ac_agent_small_batch_calling_player.pth", save_dir="models", save_memory=True):
+    def save_ac_agent(self, filename="neural_ac_agent_small_batch_Aggressor_.pth", save_dir="models", save_memory=True):
         """
         Сохраняет состояние NeuralACAgent (Actor-Critic)
 
