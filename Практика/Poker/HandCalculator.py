@@ -150,7 +150,6 @@ class HandCalculator:
         losses = 0
 
         # 4. Основной цикл (Monte Carlo)
-        # Здесь нет создания объектов, только перестановка индексов и оценка C++
         for _ in range(iters):
             # Перемешиваем доступную колоду
             random.shuffle(available_deck)
@@ -164,9 +163,6 @@ class HandCalculator:
             # Формируем полный борд для текущей симуляции
             full_board = board_hand_e7 + community_extras
 
-            # 5. Оценка силы рук (здесь происходит магия скорости)
-            # eval7.evaluate принимает список (5, 6 или 7 карт) и возвращает int
-            # Чем больше число, тем сильнее рука
             hero_score = eval7.evaluate(hero_hand_e7 + full_board)
             villain_score = eval7.evaluate(villain_hand + full_board)
 

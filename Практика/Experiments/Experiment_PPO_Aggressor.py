@@ -1,7 +1,7 @@
 from Практика.Poker import *
 
 
-StaticLogger.configure("Experiment_with_new_vector_small_batch_small_lr.log", 1000)
+StaticLogger.configure("Experiment_with_GPU_Aggressor_PPO.log", 1000)
 
 learning_num_games = 50
 learning_num_rounds = 50
@@ -17,7 +17,7 @@ players = [
         NeuralACAgent()
     ]
 pm = NeuralACAgentManager(players[1])
-# pm.load_ac_agent(filename="neural_ac_agent_GPU_Aggressor.pth")
+pm.load_ac_agent(filename="neural_ac_agent_GPU_Aggressor.pth")
 
 num_wins = { p:0 for p in players}
 
