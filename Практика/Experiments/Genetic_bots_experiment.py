@@ -11,12 +11,12 @@ StaticLogger.configure("Genetic_bots_experiment.log", 1000)
 
 
 
-learning_num_games = 1000
+learning_num_games = 10000
 learning_num_rounds = 30
 
 
 num_rounds = 30
-num_games = 10
+num_games = 1000
 
 aggressor = SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor")
 tight = SimpleGeneticBot([0.15, 0.05, 0.8], name="Tight")
@@ -26,10 +26,10 @@ maniac = SimpleGeneticBot([0.45, 0.45, 0.1], name="Maniac")
 
 tactics = [
     aggressor,
-    tight,
-    bluff,
-    balanced,
-    maniac,
+    # tight,
+    # bluff,
+    # balanced,
+    # maniac,
 ]
 
 players = [

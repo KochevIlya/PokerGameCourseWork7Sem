@@ -34,9 +34,13 @@ class ActorCriticNet(nn.Module):
 
 
 class NeuralACAgent(Player):
-    def __init__(self, name="NeuralACAgent", stack=100, actor_size=7, critic_size=8, action_size=3):
+    def __init__(self, name="NeuralACAgent", stack=100, actor_size=10, critic_size=None, action_size=3):
         super().__init__(name, stack)
 
+        if critic_size is None:
+            critic_size = actor_size + 1
+
+        self.actor_size = actor_size
         # Передаем два размера в конструктор
         self.ac_net = ActorCriticNet(actor_size, critic_size, action_size)
         self.optimizer = optim.Adam(self.ac_net.parameters(), lr=3e-4)

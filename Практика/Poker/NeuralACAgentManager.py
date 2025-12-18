@@ -23,7 +23,7 @@ class NeuralACAgentManager(PlayerManager):
         self.replay_buffer = deque(maxlen=10000)
         self.batch_size = 64
 
-    def act(self, s_actor: list, s_critic: list, can_check=False):
+    def act(self, s_actor: list, s_critic: list, can_check=False, training_mode=False):
         """
         Выбирает действие, используя Actor (на основе S_actor),
         и получает оценку состояния V(s) от Critic (на основе S_critic).
@@ -40,11 +40,14 @@ class NeuralACAgentManager(PlayerManager):
 
         if can_check:
             action_logits[0, 0] = -1e9
-
-        policy_dist = distributions.Categorical(logits=action_logits)
-
-        action_tensor = policy_dist.sample()
-        action_idx = action_tensor.item()
+        if training_mode:
+            policy_dist = distributions.Categorical(logits=action_logits)
+            action_tensor = policy_dist.sample()
+            action_idx = action_tensor.item()
+        else:
+            action_idx = torch.argmax(action_logits).item()
+            policy_dist = distributions.Categorical(logits=action_logits)
+            action_tensor = torch.tensor(action_idx)
 
         log_prob = policy_dist.log_prob(action_tensor).item()
 
@@ -173,6 +176,10 @@ class NeuralACAgentManager(PlayerManager):
             current_stack_normalized,
             pot_normalize,
             stage,
+            # 1.0 if stage == "preflop" else 0.0,
+            # 1.0 if stage == "flop" else 0.0,
+            # 1.0 if stage == "turn" else 0.0,
+            # 1.0 if stage == "river" else 0.0,
             current_decision_value,
             self.decision_value / self.num_bets,
         ]
@@ -190,7 +197,7 @@ class NeuralACAgentManager(PlayerManager):
 
 
 
-    def save_ac_agent(self, filename="neural_ac_agent_small_batch_Aggressor_.pth", save_dir="models", save_memory=True):
+    def save_ac_agent(self, filename="neural_ac_agent_GPU_Aggressor.pth", save_dir="models", save_memory=True):
         """
         Сохраняет состояние NeuralACAgent (Actor-Critic)
 
@@ -256,7 +263,7 @@ class NeuralACAgentManager(PlayerManager):
                 print(f"[❌] Файл {filepath} не найден!")
                 return False
 
-            checkpoint = torch.load(filepath, map_location=torch.device('cpu'))
+            checkpoint = torch.load(filepath, map_location=torch.device('cuda'))
 
             if checkpoint.get('model_type') != 'ActorCritic':
                 print("[⚠️] Внимание: Загружается не Actor-Critic модель")
