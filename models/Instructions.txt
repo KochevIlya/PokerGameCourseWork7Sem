@@ -1,0 +1,1 @@
+Almost every file had state vector like 7-dimension vector, exept neural_ac_agent_GPU_Aggressor_new_Calculator and other GPU flie - there 10-dimension vector

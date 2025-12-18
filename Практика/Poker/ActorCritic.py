@@ -43,7 +43,7 @@ class NeuralACAgent(Player):
         self.actor_size = actor_size
         # Передаем два размера в конструктор
         self.ac_net = ActorCriticNet(actor_size, critic_size, action_size)
-        self.optimizer = optim.Adam(self.ac_net.parameters(), lr=3e-4)
+        self.optimizer = optim.Adam(self.ac_net.parameters(), lr=1e-4)
         self.gamma = 0.99
 
         self.memory = deque(maxlen=20000)

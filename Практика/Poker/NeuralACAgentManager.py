@@ -22,6 +22,11 @@ class NeuralACAgentManager(PlayerManager):
         self.update_frequency = 50
         self.replay_buffer = deque(maxlen=10000)
         self.batch_size = 64
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        StaticLogger.print(f"NeuralACAgentManager using device: {self.device}")
+
+        if hasattr(self.player, 'ac_net'):
+            self.player.ac_net.to(self.device)
 
     def act(self, s_actor: list, s_critic: list, can_check=False, training_mode=False):
         """
@@ -30,8 +35,8 @@ class NeuralACAgentManager(PlayerManager):
         Сохраняет данные для on-policy обучения.
         """
 
-        s_actor_tensor = torch.tensor(s_actor, dtype=torch.float32).unsqueeze(0)
-        s_critic_tensor = torch.tensor(s_critic, dtype=torch.float32).unsqueeze(0)
+        s_actor_tensor = torch.tensor(s_actor, dtype=torch.float32).unsqueeze(0).to(self.device)
+        s_critic_tensor = torch.tensor(s_critic, dtype=torch.float32).unsqueeze(0).to(self.device)
 
         self.player.ac_net.eval()
         with torch.no_grad():
@@ -47,7 +52,7 @@ class NeuralACAgentManager(PlayerManager):
         else:
             action_idx = torch.argmax(action_logits).item()
             policy_dist = distributions.Categorical(logits=action_logits)
-            action_tensor = torch.tensor(action_idx)
+            action_tensor = torch.tensor(action_idx).to(self.device)
 
         log_prob = policy_dist.log_prob(action_tensor).item()
 
@@ -91,7 +96,7 @@ class NeuralACAgentManager(PlayerManager):
 
         self.episode_data.clear()
 
-        BATCH_SIZE = 128
+        BATCH_SIZE = 256
 
         if len(self.episode_buffer) >= BATCH_SIZE:
             self._update_network()
@@ -105,10 +110,10 @@ class NeuralACAgentManager(PlayerManager):
 
         s_actors, s_critics, actions, returns = zip(*self.episode_buffer)
 
-        s_actors = torch.tensor(s_actors, dtype=torch.float32)
-        s_critics = torch.tensor(s_critics, dtype=torch.float32)
-        actions = torch.tensor(actions, dtype=torch.long)
-        returns = torch.tensor(returns, dtype=torch.float32)
+        s_actors = torch.tensor(s_actors, dtype=torch.float32).to(self.device)
+        s_critics = torch.tensor(s_critics, dtype=torch.float32).to(self.device)
+        actions = torch.tensor(actions, dtype=torch.long).to(self.device)
+        returns = torch.tensor(returns, dtype=torch.float32).to(self.device)
 
         self.episode_buffer.clear()
 
@@ -168,18 +173,16 @@ class NeuralACAgentManager(PlayerManager):
                             active_opponents_count, current_decision_value,
                             stage="preflop", all_player_hands=None):
         hand_strength = HandCalculator.evaluate_hand_strength(self.player.hole_cards, community_cards)
-        stage = STAGES[stage] / len(STAGES)
 
         s_actor = [
             hand_strength,
             current_bet_normalized,
             current_stack_normalized,
             pot_normalize,
-            stage,
-            # 1.0 if stage == "preflop" else 0.0,
-            # 1.0 if stage == "flop" else 0.0,
-            # 1.0 if stage == "turn" else 0.0,
-            # 1.0 if stage == "river" else 0.0,
+            1.0 if stage == "preflop" else 0.0,
+            1.0 if stage == "flop" else 0.0,
+            1.0 if stage == "turn" else 0.0,
+            1.0 if stage == "river" else 0.0,
             current_decision_value,
             self.decision_value / self.num_bets,
         ]
@@ -197,7 +200,7 @@ class NeuralACAgentManager(PlayerManager):
 
 
 
-    def save_ac_agent(self, filename="neural_ac_agent_GPU_Aggressor.pth", save_dir="models", save_memory=True):
+    def save_ac_agent(self, filename="neural_ac_agent_GPU_Aggressor_new_Calculator.pth", save_dir="models", save_memory=True):
         """
         Сохраняет состояние NeuralACAgent (Actor-Critic)
 
