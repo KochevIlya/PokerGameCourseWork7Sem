@@ -34,7 +34,7 @@ class ActorCriticNet(nn.Module):
 
 
 class NeuralACAgent(Player):
-    def __init__(self, name="NeuralACAgent", stack=100, actor_size=7, critic_size=None, action_size=3):
+    def __init__(self, name="NeuralACAgent", stack=100, actor_size=10, critic_size=None, action_size=3):
         super().__init__(name, stack)
 
         if critic_size is None:

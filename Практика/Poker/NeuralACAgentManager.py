@@ -186,13 +186,19 @@ class NeuralACAgentManager(PlayerManager):
                             active_opponents_count, current_decision_value,
                             stage="preflop", all_player_hands=None):
         hand_strength = HandCalculator.evaluate_hand_strength(self.player.hole_cards, community_cards)
-        stage = STAGES[stage] / len(STAGES)
+        s_preflop = 1.0 if stage == "preflop" else 0.0
+        s_flop = 1.0 if stage == "flop" else 0.0
+        s_turn = 1.0 if stage == "turn" else 0.0
+        s_river = 1.0 if stage == "river" else 0.0
         s_actor = [
             hand_strength,
             current_bet_normalized,
             current_stack_normalized,
             pot_normalize,
-            stage,
+            s_preflop,
+            s_flop,
+            s_turn,
+            s_river,
             current_decision_value,
             self.decision_value / self.num_bets,
         ]
@@ -210,7 +216,7 @@ class NeuralACAgentManager(PlayerManager):
 
 
 
-    def save_ac_agent(self, filename="neural_ac_agent_for_course.pth", save_dir="models", save_memory=True):
+    def save_ac_agent(self, filename="neural_ac_agent_for_course_2.pth", save_dir="models", save_memory=True):
         """
         Сохраняет состояние NeuralACAgent (Actor-Critic)
 
