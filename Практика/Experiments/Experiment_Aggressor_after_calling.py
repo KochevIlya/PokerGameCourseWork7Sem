@@ -2,31 +2,29 @@ from Практика.Poker import *
 import numpy as np
 import matplotlib.pyplot as plt
 
-StaticLogger.configure("Experiment_with_random_player.log", 1000)
+StaticLogger.configure("Experiment_with_Aggressor_course_after_calling.log", 1000)
 
 learning_num_games = 50
 learning_num_rounds = 50
 
 
 num_rounds = 30
-num_games = 100
-
-
-
+num_games = 30000
 
 
 game_winners = []
-win_rate_history = []  # История изменения винрейта
-games_counter = 0  # Счетчик игр
 
-# bot_fabric = BotFabric()
-# bot_fabric.fit(learning_num_games, learning_num_rounds)
 players = [
-        RandomPlayer(),
+        SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor"),
         NeuralACAgent()
     ]
 
+pm = NeuralACAgentManager(players[1])
+pm.load_ac_agent(filename="neural_ac_agent_for_course_after_calling.pth")
 num_wins = { p:0 for p in players}
+
+win_rate_history = []  # История изменения винрейта
+games_counter = 0  # Счетчик игр
 
 for i in range(num_games):
 
@@ -50,8 +48,10 @@ for i in range(num_games):
     win_rate = num_wins[players[1]] / (i+1) * 100  # В процентах
     win_rate_history.append(win_rate)
 
+
 StaticLogger.print(f'\033[32mМеста в порядке убывания: {game_winners}\033[0m\n')
 StaticLogger.print(f'\033[32mКоличество выигрышей: {num_wins}\033[0m\n')
+StaticLogger.print(f"Win rate: {win_rate_history}")
 StaticLogger.flush()
 
 # ========== ПРОСТОЙ ГРАФИК WIN RATE ==========
@@ -74,3 +74,5 @@ print(f"\nФинальная статистика:")
 print(f"Всего игр: {num_games}")
 print(f"Побед: {num_wins[players[1]]}")
 print(f"Win Rate: {final_rate:.2f}%")
+
+NNData.show_losses()

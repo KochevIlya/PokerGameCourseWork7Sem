@@ -9,24 +9,25 @@ from .PlayerManager import PlayerManager
 from .HandCalculator import HandCalculator
 from .NeuralAgent import *
 from .Logger import *
+from .NNData import NNData
 import torch.distributions as distributions
 
 STAGES ={ "preflop": 0, "flop": 1, "turn": 2, "river": 3, }
 ACTIONS = { 0 : "fold", 1 : "raise", 2 : "call", }
 
-
 class NeuralACAgentManager(PlayerManager):
-    def __init__(self, player: NeuralAgent):
+    def __init__(self, player:NeuralAgent):
         super().__init__(player)
         self.episode_data = []
         self.episode_buffer = []
-
-        # --- Гиперпараметры PPO ---
-        self.gamma = 0.99
-        self.eps_clip = 0.2  # Рекомендуемое значение для clipping (20%)
-        self.ppo_epochs = 5  # Сколько раз прогонять один батч через сеть
-        self.batch_size = 256  # Увеличили батч для стабильности
-        self.entropy_coef = 0.02  # Коэффициент энтропии (исследование)
+        self.update_frequency = 50
+        self.replay_buffer = deque(maxlen=10000)
+        self.epsilon = 0.1
+        self.epsilon_des = 0.999
+        self.min_epsilon = 0.02
+        self.total_loss_buffer = []
+        self.actor_loss_buffer = []
+        self.critic_loss_buffer = []
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         StaticLogger.print(f"NeuralACAgentManager using device: {self.device}")
@@ -35,6 +36,11 @@ class NeuralACAgentManager(PlayerManager):
             self.player.ac_net.to(self.device)
 
     def act(self, s_actor: list, s_critic: list, can_check=False, training_mode=False):
+        """
+        Выбирает действие, используя Actor (на основе S_actor),
+        и получает оценку состояния V(s) от Critic (на основе S_critic).
+        Сохраняет данные для on-policy обучения.
+        """
 
         s_actor_tensor = torch.tensor(s_actor, dtype=torch.float32).unsqueeze(0).to(self.device)
         s_critic_tensor = torch.tensor(s_critic, dtype=torch.float32).unsqueeze(0).to(self.device)
@@ -46,16 +52,17 @@ class NeuralACAgentManager(PlayerManager):
 
         if can_check:
             action_logits[0, 0] = -1e9
-        policy_dist = distributions.Categorical(logits=action_logits)
-
         if training_mode:
+            policy_dist = distributions.Categorical(logits=action_logits)
             action_tensor = policy_dist.sample()
             action_idx = action_tensor.item()
         else:
             action_idx = torch.argmax(action_logits).item()
+            policy_dist = distributions.Categorical(logits=action_logits)
             action_tensor = torch.tensor(action_idx).to(self.device)
 
         log_prob = policy_dist.log_prob(action_tensor).item()
+
         value_estimate = value.item()
 
         self.episode_data.append((s_actor, s_critic, action_idx, log_prob, value_estimate))
@@ -67,76 +74,94 @@ class NeuralACAgentManager(PlayerManager):
         return action_idx
 
     def train_actor_critic(self, final_reward):
+        """
+        Обрабатывает завершенный эпизод:
+        1. Считает дисконтированные награды (Returns).
+        2. Складывает данные в общий буфер (Experience Replay).
+        3. Если буфер полон — запускает обучение.
+        """
         if not self.episode_data:
             return
 
-        s_actors, s_critics, actions, log_probs, _ = zip(*self.episode_data)
+        s_actors, s_critics, actions, _, _ = zip(*self.episode_data)
 
         returns = []
         R = final_reward
 
         for _ in reversed(range(len(self.episode_data))):
             returns.insert(0, R)
-            R = R * self.gamma
+            R = R * self.player.gamma
+
 
         for i in range(len(s_actors)):
-            self.episode_buffer.append((
+            NNData.add_buffer((
                 s_actors[i],
                 s_critics[i],
                 actions[i],
-                log_probs[i],
                 returns[i]
             ))
 
         self.episode_data.clear()
 
-        if len(self.episode_buffer) >= self.batch_size:
-            self._update_network_ppo()
 
-    def _update_network_ppo(self):
+        if NNData.is_full():
+            self.episode_buffer = NNData.get_buffer()
+            print(f"Target Network updated!!!, Length: {len(self.episode_buffer)}")
+            self._update_network()
 
+
+    def _update_network(self):
+        """
+        Выполняет один шаг градиентного спуска на накопленном батче данных.
+        """
         if not self.episode_buffer:
             return
 
-        s_actors, s_critics, actions, old_log_probs, returns = zip(*self.episode_buffer)
+        s_actors, s_critics, actions, returns = zip(*self.episode_buffer)
 
         s_actors = torch.tensor(s_actors, dtype=torch.float32).to(self.device)
         s_critics = torch.tensor(s_critics, dtype=torch.float32).to(self.device)
         actions = torch.tensor(actions, dtype=torch.long).to(self.device)
-        old_log_probs = torch.tensor(old_log_probs, dtype=torch.float32).to(self.device)
         returns = torch.tensor(returns, dtype=torch.float32).to(self.device)
 
-        self.episode_buffer.clear()
+        NNData.clear()
 
-        for _ in range(self.ppo_epochs):
-            action_logits, values = self.player.ac_net(s_actors, s_critics)
-            values = values.squeeze(1)
+        self.player.ac_net.train()
 
-            policy_dist = distributions.Categorical(logits=action_logits)
-            new_log_probs = policy_dist.log_prob(actions)
-            dist_entropy = policy_dist.entropy().mean()
+        action_logits, values = self.player.ac_net(s_actors, s_critics)
 
-            advantages = returns - values.detach()
+        values = values.squeeze(1)
 
-            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+        policy_dist = distributions.Categorical(logits=action_logits)
 
-            ratio = torch.exp(new_log_probs - old_log_probs)
-            surr1 = ratio * advantages
-            surr2 = torch.clamp(ratio, 1 - self.eps_clip, 1 + self.eps_clip) * advantages
+        log_probs = policy_dist.log_prob(actions)
 
-            actor_loss = -torch.min(surr1, surr2).mean()
 
-            critic_loss = F.mse_loss(values, returns)
+        dist_entropy = policy_dist.entropy().mean()
 
-            loss = actor_loss + 0.5 * critic_loss - self.entropy_coef * dist_entropy
+        advantage = returns - values.detach()
 
-            self.player.optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.player.ac_net.parameters(), max_norm=0.5)
-            self.player.optimizer.step()
+        actor_loss = -(log_probs * advantage).mean()
 
-        StaticLogger.print(
-            f"PPO Update: Loss={loss.item():.4f}, Actor={actor_loss.item():.4f}, Critic={critic_loss.item():.4f}")
+        critic_loss = F.mse_loss(values, returns)
+
+        self.epsilon = max(self.epsilon * self.epsilon_des, self.min_epsilon)
+        total_loss = actor_loss + 0.5 * critic_loss - self.epsilon * dist_entropy
+
+        self.player.optimizer.zero_grad()
+        total_loss.backward()
+
+        torch.nn.utils.clip_grad_norm_(self.player.ac_net.parameters(), max_norm=0.5)
+
+        self.player.optimizer.step()
+
+
+        StaticLogger.print(f"Update: Loss={total_loss.item():.4f}, Actor={actor_loss.item():.4f}, Critic={critic_loss.item():.4f}")
+        NNData.add_loss_actor(actor_loss.item())
+        NNData.add_loss_critic(critic_loss.item())
+        NNData.add_loss_buffer(total_loss.item())
+
+
     def ask_decision(self, s_actor: list, s_critic: list, can_check=False):
         """
         Интерфейс с GameManager. Принимает векторы состояния, вызывает act,
@@ -161,16 +186,13 @@ class NeuralACAgentManager(PlayerManager):
                             active_opponents_count, current_decision_value,
                             stage="preflop", all_player_hands=None):
         hand_strength = HandCalculator.evaluate_hand_strength(self.player.hole_cards, community_cards)
-
+        stage = STAGES[stage] / len(STAGES)
         s_actor = [
             hand_strength,
             current_bet_normalized,
             current_stack_normalized,
             pot_normalize,
-            1.0 if stage == "preflop" else 0.0,
-            1.0 if stage == "flop" else 0.0,
-            1.0 if stage == "turn" else 0.0,
-            1.0 if stage == "river" else 0.0,
+            stage,
             current_decision_value,
             self.decision_value / self.num_bets,
         ]
@@ -188,7 +210,7 @@ class NeuralACAgentManager(PlayerManager):
 
 
 
-    def save_ac_agent(self, filename="neural_ac_agent_Aggressor_small_batch_small_lr.pth", save_dir="models", save_memory=True):
+    def save_ac_agent(self, filename="neural_ac_agent_for_course.pth", save_dir="models", save_memory=True):
         """
         Сохраняет состояние NeuralACAgent (Actor-Critic)
 

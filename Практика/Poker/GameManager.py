@@ -149,6 +149,7 @@ class GameManager:
                     pm.train_actor_critic(final_reward)
                     StaticLogger.print("Target Network updated!")
 
+
         for winner in winners:
             winner.add_stack(share)
 

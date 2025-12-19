@@ -17,7 +17,7 @@ players = [
         NeuralACAgent()
     ]
 pm = NeuralACAgentManager(players[1])
-# pm.load_ac_agent(filename="neural_ac_agent_GPU_Aggressor.pth")
+pm.load_ac_agent(filename="neural_ac_agent_Aggressor_small_bs_small_lr.pth")
 
 num_wins = { p:0 for p in players}
 
