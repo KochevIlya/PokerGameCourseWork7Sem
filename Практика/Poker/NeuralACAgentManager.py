@@ -23,17 +23,49 @@ class NeuralACAgentManager(PlayerManager):
         self.update_frequency = 50
         self.replay_buffer = deque(maxlen=10000)
         self.epsilon = 0.1
-        self.epsilon_des = 0.999
-        self.min_epsilon = 0.02
+        self.epsilon_des = 0.9995
+        self.min_epsilon = 0.01
         self.total_loss_buffer = []
         self.actor_loss_buffer = []
         self.critic_loss_buffer = []
+        self.action_dim = 3
+        self.history_len = 10
+
+        self.history_buffer = deque(maxlen=self.history_len)
+        self.reset_history()
+
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         StaticLogger.print(f"NeuralACAgentManager using device: {self.device}")
 
         if hasattr(self.player, 'ac_net'):
             self.player.ac_net.to(self.device)
+
+    def reset_history(self):
+        """Очищает историю (заполняет нулями) перед новой игрой"""
+        self.history_buffer.clear()
+        for _ in range(self.history_len):
+            self.history_buffer.append(np.zeros(self.action_dim, dtype=np.float32))
+
+    def record_opponent_action(self, action_type):
+        """
+        Вызывай этот метод из GameManager, когда оппонент делает ход!
+        action_type: 0-fold, 1-check, 2-call, 3-raise (пример)
+        """
+        vec = np.zeros(self.action_dim, dtype=np.float32)
+
+        # Пример кодирования: [IsFold, IsCheck, IsCall, IsRaise, Amount]
+        # Допустим mapping action_type: 0->Fold, 1->Check, 2->Call, 3->Raise
+
+        if 0 <= action_type < 2:
+            vec[action_type] = 1.0
+
+        self.history_buffer.append(vec)
+
+    def get_history_tensor(self):
+        """Превращает deque в тензор [1, 10, 5]"""
+        h_array = np.array(self.history_buffer)
+        return torch.tensor(h_array, dtype=torch.float32).unsqueeze(0).to(self.device)
 
     def act(self, s_actor: list, s_critic: list, can_check=False, training_mode=False):
         """
@@ -45,9 +77,11 @@ class NeuralACAgentManager(PlayerManager):
         s_actor_tensor = torch.tensor(s_actor, dtype=torch.float32).unsqueeze(0).to(self.device)
         s_critic_tensor = torch.tensor(s_critic, dtype=torch.float32).unsqueeze(0).to(self.device)
 
+        history_tensor = self.get_history_tensor()
+
         self.player.ac_net.eval()
         with torch.no_grad():
-            action_logits, value = self.player.ac_net(s_actor_tensor, s_critic_tensor)
+            action_logits, value = self.player.ac_net(s_actor_tensor, s_critic_tensor, history_tensor)
         self.player.ac_net.train()
 
         if can_check:
@@ -65,7 +99,9 @@ class NeuralACAgentManager(PlayerManager):
 
         value_estimate = value.item()
 
-        self.episode_data.append((s_actor, s_critic, action_idx, log_prob, value_estimate))
+        current_history_snapshot = np.array(self.history_buffer)
+
+        self.episode_data.append((s_actor, s_critic, current_history_snapshot, action_idx, log_prob, value_estimate))
 
         self.last_s_actor = s_actor
         self.last_s_critic = s_critic
@@ -83,7 +119,7 @@ class NeuralACAgentManager(PlayerManager):
         if not self.episode_data:
             return
 
-        s_actors, s_critics, actions, _, _ = zip(*self.episode_data)
+        s_actors, s_critics, histories, actions, _, _ = zip(*self.episode_data)
 
         returns = []
         R = final_reward
@@ -97,6 +133,7 @@ class NeuralACAgentManager(PlayerManager):
             NNData.add_buffer((
                 s_actors[i],
                 s_critics[i],
+                histories[i],
                 actions[i],
                 returns[i]
             ))
@@ -117,18 +154,24 @@ class NeuralACAgentManager(PlayerManager):
         if not self.episode_buffer:
             return
 
-        s_actors, s_critics, actions, returns = zip(*self.episode_buffer)
+        s_actors, s_critics, histories, actions, returns = zip(*self.episode_buffer)
 
-        s_actors = torch.tensor(s_actors, dtype=torch.float32).to(self.device)
-        s_critics = torch.tensor(s_critics, dtype=torch.float32).to(self.device)
-        actions = torch.tensor(actions, dtype=torch.long).to(self.device)
-        returns = torch.tensor(returns, dtype=torch.float32).to(self.device)
+        # ИСПРАВЛЕНИЕ: Сначала конвертируем tuple/list в numpy array, потом в tensor
+        s_actors = torch.tensor(np.array(s_actors), dtype=torch.float32).to(self.device)
+        s_critics = torch.tensor(np.array(s_critics), dtype=torch.float32).to(self.device)
+        histories = torch.tensor(np.array(histories), dtype=torch.float32).to(self.device)
+
+        # Для actions и returns обычно приходят просто числа, но np.array тоже не повредит для надежности
+        actions = torch.tensor(np.array(actions), dtype=torch.long).to(self.device)
+        returns = torch.tensor(np.array(returns), dtype=torch.float32).to(self.device)
+
+        returns = (returns - returns.mean()) / (returns.std() + 1e-7)
 
         NNData.clear()
 
         self.player.ac_net.train()
 
-        action_logits, values = self.player.ac_net(s_actors, s_critics)
+        action_logits, values = self.player.ac_net(s_actors, s_critics, histories)
 
         values = values.squeeze(1)
 
@@ -143,7 +186,7 @@ class NeuralACAgentManager(PlayerManager):
 
         actor_loss = -(log_probs * advantage).mean()
 
-        critic_loss = F.mse_loss(values, returns)
+        critic_loss = F.huber_loss(values, returns, delta=1.0)
 
         self.epsilon = max(self.epsilon * self.epsilon_des, self.min_epsilon)
         total_loss = actor_loss + 0.5 * critic_loss - self.epsilon * dist_entropy
@@ -216,7 +259,7 @@ class NeuralACAgentManager(PlayerManager):
 
 
 
-    def save_ac_agent(self, filename="neural_ac_agent_for_course_2.pth", save_dir="models", save_memory=True):
+    def save_ac_agent(self, filename="neural_ac_agent_for_course_LSTM_after_calling.pth", save_dir="models", save_memory=True):
         """
         Сохраняет состояние NeuralACAgent (Actor-Critic)
 
@@ -231,22 +274,28 @@ class NeuralACAgentManager(PlayerManager):
             os.makedirs(save_dir, exist_ok=True)
 
             filepath = os.path.join(save_dir, filename)
+            lstm_hidden = self.player.ac_net.actor_lstm.hidden_size if hasattr(self.player, 'ac_net') else 32
 
             checkpoint = {
                 'ac_net_state_dict': self.player.ac_net.state_dict(),
                 'optimizer_state_dict': self.player.optimizer.state_dict(),
 
                 'gamma': self.player.gamma,
-                'actor_size': self.player.ac_net.actor_net[0].in_features if hasattr(self.player, 'ac_net') else 8,
-                'critic_size': self.player.ac_net.critic_net[0].in_features if hasattr(self.player, 'ac_net') else 9,
+                # Обновляем получение размеров, так как структура изменилась, но логика та же
+                'actor_size': self.player.ac_net.actor_net[0].in_features - lstm_hidden if hasattr(self.player,
+                                                                                                   'ac_net') else 10,
+                'critic_size': self.player.ac_net.critic_net[0].in_features - lstm_hidden if hasattr(self.player,
+                                                                                                     'ac_net') else 11,
                 'action_size': self.player.ac_net.actor_net[-1].out_features if hasattr(self.player, 'ac_net') else 3,
 
-                # Состояние агента
+                # Сохраняем параметры LSTM
+                'lstm_hidden': lstm_hidden,
+                'history_len': self.history_len,
+                'action_vector_size': self.action_dim,
+
                 'name': self.player.name,
                 'stack': self.player.stack,
-
-                # Метаданные
-                'model_type': 'ActorCritic',
+                'model_type': 'ActorCritic_DualLSTM',  # Можно поменять тип для ясности
             }
 
             if save_memory and hasattr(self.player, 'memory'):

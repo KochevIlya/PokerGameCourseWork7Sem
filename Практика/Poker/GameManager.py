@@ -5,17 +5,18 @@ from .NeuralAgent import NeuralAgent
 from .Deck import Deck
 from .PlayerManager import PlayerManager
 from .Game import Game
-from .Player import Player
 from .BotManager import BotManager
 from .bot import SimpleGeneticBot
-from .NeuralAgentManager import *
-from .NeuralAgentManager import *
+from .NeuralAgentManager import NeuralAgentManager
 from functools import cmp_to_key
 from .Logger import *
-from .NeuralACAgentManager import *
+from .NeuralACAgentManager import NeuralACAgentManager
 from .ActorCritic import *
 from .CallingPlayerManager import CallingPlayerManager
 from .CallingPlayer import CallingPlayer
+
+
+ACTIONS = {"fold" : 0, "call" : 1, "raise" : 2}
 
 class GameManager:
     """
@@ -326,10 +327,17 @@ class GameManager:
 
                 StaticLogger.print(pm.player)
 
+                for p in self.game.players:
+                    if isinstance(p, NeuralACAgent) and p != player:
+                        act_code = self.encode_action(player.decision)
+                        self.pm[p].record_opponent_action(act_code)
+
             still_in = self.game.active_players_count()
             if still_in <= 1:
                 break
 
+    def encode_action(self, action):
+        return ACTIONS[action]
 
     def _betting_order(self, stage):
         """Создаёт порядок игроков для ставок."""

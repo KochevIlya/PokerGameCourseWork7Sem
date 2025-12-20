@@ -2,14 +2,14 @@ from Практика.Poker import *
 import numpy as np
 import matplotlib.pyplot as plt
 
-StaticLogger.configure("Experiment_with_Aggressor_course_after_calling.log", 1000)
+StaticLogger.configure("Experiment_with_Aggressor_course_after_calling_LSTM.log", 1000)
 
 learning_num_games = 50
 learning_num_rounds = 50
 
 
 num_rounds = 30
-num_games = 30000
+num_games = 60000
 
 
 game_winners = []
@@ -20,7 +20,7 @@ players = [
     ]
 
 pm = NeuralACAgentManager(players[1])
-pm.load_ac_agent(filename="neural_ac_agent_for_course_after_calling.pth")
+pm.load_ac_agent(filename="neural_ac_agent_for_course_LSTM_after_calling.pth")
 num_wins = { p:0 for p in players}
 
 win_rate_history = []  # История изменения винрейта

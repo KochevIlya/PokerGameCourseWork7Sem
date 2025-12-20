@@ -5,7 +5,7 @@ class NNData:
 
     _instance = None
     episode_buffer = []
-    BATCH_SIZE = 32768
+    BATCH_SIZE = 4096
     loss_critic_buffer = []
     loss_actor_buffer = []
     loss_buffer = []
@@ -63,5 +63,5 @@ class NNData:
         plt.ylabel('Loss')
         plt.title(f'Critic Loss')
         plt.grid(True, alpha=0.3)
-        plt.ylim(-0.2, 0.2)
+        plt.ylim(0, 0.6)
         plt.show()
