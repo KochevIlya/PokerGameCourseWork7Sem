@@ -72,18 +72,22 @@ class NeuralACAgent(Player):
         self.ac_net = ActorCriticNet(actor_size, critic_size, action_size,
                                      history_len=history_len,
                                      action_input_dim=action_vector_size)
-        self.optimizer = optim.Adam(self.ac_net.parameters(), lr=5e-4)
-        self.gamma = 0.99
 
-        self.memory = deque(maxlen=20000)
+        # Раздельные Learning Rate: Critic учится быстрее, Actor — медленнее
+        self.optimizer = optim.Adam([
+            # Actor — медленное обучение (стабильная стратегия)
+            {'params': self.ac_net.actor_net.parameters(), 'lr': 1e-4},
+            {'params': self.ac_net.actor_lstm.parameters(), 'lr': 1e-4},
+
+            # Critic — быстрое обучение (точная оценка значений)
+            {'params': self.ac_net.critic_net.parameters(), 'lr': 5e-4},
+            {'params': self.ac_net.critic_lstm.parameters(), 'lr': 5e-4},
+        ], lr=1e-4)  # базовый LR (fallback)
+
+        self.gamma = 0.99
 
         self.actor_hidden = None
         self.critic_hidden = None
-
-    def get_memory(self):
-        return self.memory
-    def set_memory(self, memory):
-        self.memory = memory
 
     def reset_for_new_hand(self):
         super().reset_for_new_hand()

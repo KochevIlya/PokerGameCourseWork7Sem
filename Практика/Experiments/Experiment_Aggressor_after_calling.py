@@ -10,7 +10,7 @@ learning_num_rounds = 50
 
 
 num_rounds = 30
-num_games = 30000
+num_games = 10000
 
 
 game_winners = []
@@ -48,6 +48,15 @@ for i in range(num_games):
 
     win_rate = num_wins[players[1]] / (i+1) * 100  # В процентах
     win_rate_history.append(win_rate)
+
+    # Чекпоинты каждые 5000 игр: сохранение модели + валидация
+    if (i + 1) % 5000 == 0:
+        for p, p_manager in gameManager.pm.items():
+            if isinstance(p_manager, NeuralACAgentManager):
+                p_manager.save_ac_agent(f"checkpoint_game_{i+1}.pth")
+                p_manager.run_validation(num_games_val=100)
+                print(f"\n💾 Чекпоинт сохранён на игре {i+1}")
+                break
 
 
 StaticLogger.print_to("summary", f'\033[32mМеста в порядке убывания: {game_winners}\033[0m\n')

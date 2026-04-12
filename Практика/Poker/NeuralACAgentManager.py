@@ -433,15 +433,13 @@ class NeuralACAgentManager(PlayerManager):
 
 
 
-    def save_ac_agent(self, filename="neural_ac_agent_for_course_LSTM_after_calling.pth", save_dir="models", save_memory=True):
+    def save_ac_agent(self, filename="neural_ac_agent_for_course_LSTM_after_calling.pth", save_dir="models"):
         """
         Сохраняет состояние NeuralACAgent (Actor-Critic)
 
         Args:
-            self: экземпляр NeuralACAgent
             filename: имя файла для сохранения
             save_dir: директория для сохранения
-            save_memory: сохранять ли память (может быть большим)
         """
         try:
 
@@ -470,13 +468,8 @@ class NeuralACAgentManager(PlayerManager):
                 'model_type': 'ActorCritic_DualLSTM',
             }
 
-            if save_memory and hasattr(self.player, 'memory'):
-                checkpoint['memory'] = list(self.player.memory)
-                checkpoint['memory_size'] = len(self.player.memory)
-
             torch.save(checkpoint, filepath)
             print(f"[✅] NeuralACAgent '{self.player.name}' сохранен в {filepath}")
-            print(f"    Память: {checkpoint.get('memory_size', 0)} записей")
 
             return filepath
 
@@ -484,16 +477,13 @@ class NeuralACAgentManager(PlayerManager):
             print(f"[❌] Ошибка при сохранении агента: {e}")
             return None
 
-    def load_ac_agent(self, filename="neural_ac_agent.pth", save_dir="models",
-                      load_memory=True, strict=True):
+    def load_ac_agent(self, filename="neural_ac_agent.pth", save_dir="models", strict=True):
         """
         Загружает состояние NeuralACAgent с ДЕТАЛЬНОЙ ПРОВЕРКОЙ ключей.
 
         Args:
-            self: экземпляр NeuralACAgent для загрузки данных
             filename: имя файла для загрузки
             save_dir: директория с файлами
-            load_memory: загружать ли память
             strict: строгая загрузка весов модели (по умолчанию True)
         """
         try:
@@ -587,10 +577,6 @@ class NeuralACAgentManager(PlayerManager):
             if 'gamma' in checkpoint:
                 self.player.gamma = checkpoint['gamma']
                 print(f"    Gamma: {self.player.gamma}")
-
-            if load_memory and 'memory' in checkpoint and hasattr(self.player, 'memory'):
-                self.player.memory = deque(checkpoint['memory'], maxlen=self.player.memory.maxlen)
-                print(f"    Память: загружено {len(self.player.memory)} записей")
 
             if 'stack' in checkpoint:
                 self.player.stack = checkpoint['stack']

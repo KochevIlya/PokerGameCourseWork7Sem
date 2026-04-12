@@ -29,7 +29,7 @@ class GameManager:
     - определением победителя
     """
 
-    def __init__(self, game: Game, num_games_safe_model = 100):
+    def __init__(self, game: Game, num_games_safe_model = 5000):
         """
         game                — объект Game
         """
@@ -144,7 +144,9 @@ class GameManager:
                 else:
                     net_profit = -player.get_bet()
 
-                final_reward = net_profit / self.game.initial_stack / self.num_players
+                # Reward Scaling: нормализуем через Big Blind
+                # Делим на BB и масштабируем, чтобы награды были в диапазоне ~[-1, 1]
+                final_reward = net_profit / self.game.min_bet / 100.0
 
                 if pm.episode_data:
                     pm.train_actor_critic(final_reward)
@@ -272,6 +274,7 @@ class GameManager:
                         all_player_hands=all_player_hands  # Передаем скрытую информацию
                     )
                     StaticLogger.print_to("decisions", f'S_actor: {s_actor}\nS_critic: {s_critic}')
+                    StaticLogger.print_to("game", f'S_actor: {s_actor}\nS_critic: {s_critic}')
 
                     pm.ask_decision(s_actor, s_critic, can_check)
 
@@ -335,6 +338,7 @@ class GameManager:
                         players_to_act.remove(player)
 
                 StaticLogger.print_to("decisions", pm.player)
+                StaticLogger.print_to("game", pm.player)
 
                 for p in self.game.players:
                     if isinstance(p, NeuralACAgent) and p != player:
