@@ -2,14 +2,15 @@ from Практика.Poker import *
 import numpy as np
 import matplotlib.pyplot as plt
 
-StaticLogger.configure("Experiment_with_Aggressor_course_after_calling_LSTM.log", 1000)
+# Настраиваем категориальные логи эксперимента
+StaticLogger.configure_experiment_logs("Experiment_with_Aggressor_course_after_calling_LSTM", buffer_size=500)
 
 learning_num_games = 50
 learning_num_rounds = 50
 
 
 num_rounds = 30
-num_games = 60000
+num_games = 30000
 
 
 game_winners = []
@@ -37,7 +38,7 @@ for i in range(num_games):
 
     winners = gameManager.start_game(num_rounds, i)
 
-    StaticLogger.print(f'\033[32mМеста в порядке убывания: {winners}\033[0m\n')
+    StaticLogger.print_to("game", f'\033[32mМеста в порядке убывания: {winners}\033[0m\n')
 
     game_winners.append(winners)
     best_stack = winners[0].get_stack()
@@ -49,10 +50,10 @@ for i in range(num_games):
     win_rate_history.append(win_rate)
 
 
-StaticLogger.print(f'\033[32mМеста в порядке убывания: {game_winners}\033[0m\n')
-StaticLogger.print(f'\033[32mКоличество выигрышей: {num_wins}\033[0m\n')
-StaticLogger.print(f"Win rate: {win_rate_history}")
-StaticLogger.flush()
+StaticLogger.print_to("summary", f'\033[32mМеста в порядке убывания: {game_winners}\033[0m\n')
+StaticLogger.print_to("summary", f'\033[32mКоличество выигрышей: {num_wins}\033[0m\n')
+StaticLogger.print_to("summary", f"Win rate: {win_rate_history}")
+StaticLogger.flush_all()
 
 # ========== ПРОСТОЙ ГРАФИК WIN RATE ==========
 plt.figure(figsize=(10, 5))

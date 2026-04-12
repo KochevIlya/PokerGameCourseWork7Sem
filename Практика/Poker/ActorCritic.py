@@ -7,7 +7,7 @@ from .Player import *
 
 class ActorCriticNet(nn.Module):
     def __init__(self, actor_state_size, critic_state_size, action_size, history_len=10, action_input_dim=3,
-                 lstm_hidden=32):
+                 lstm_hidden=16):
         super().__init__()
 
         # --- ИЗМЕНЕНИЕ: Две раздельные LSTM ---
@@ -35,13 +35,13 @@ class ActorCriticNet(nn.Module):
             nn.Linear(64, 1)
         )
 
-    def forward(self, s_actor, s_critic, history):
+    def forward(self, s_actor, s_critic, history, actor_hidden=None, critic_hidden=None):
         # Ветка Актера
-        actor_lstm_out, _ = self.actor_lstm(history)
+        actor_lstm_out, next_actor_hidden = self.actor_lstm(history, actor_hidden)
         actor_context = actor_lstm_out[:, -1, :]  # Берем последний выход
 
         # Ветка Критика
-        critic_lstm_out, _ = self.critic_lstm(history)
+        critic_lstm_out, next_critic_hidden = self.critic_lstm(history, critic_hidden)
         critic_context = critic_lstm_out[:, -1, :]  # Берем последний выход
 
         # Объединение
@@ -53,7 +53,7 @@ class ActorCriticNet(nn.Module):
         if s_critic is not None:
             state_value = self.critic_net(critic_input)
 
-        return action_logits, state_value
+        return action_logits, state_value, next_actor_hidden, next_critic_hidden
 
 
 class NeuralACAgent(Player):
@@ -63,10 +63,11 @@ class NeuralACAgent(Player):
         if critic_size is None:
             critic_size = actor_size + 1
 
+        self.actor_size = actor_size
+        self.critic_size = critic_size  # Сохраняем для корректного save/load
         self.history_len = history_len
         self.action_vector_size = action_vector_size
 
-        self.actor_size = actor_size
         # Передаем два размера в конструктор
         self.ac_net = ActorCriticNet(actor_size, critic_size, action_size,
                                      history_len=history_len,
@@ -76,6 +77,9 @@ class NeuralACAgent(Player):
 
         self.memory = deque(maxlen=20000)
 
+        self.actor_hidden = None
+        self.critic_hidden = None
+
     def get_memory(self):
         return self.memory
     def set_memory(self, memory):
@@ -83,5 +87,7 @@ class NeuralACAgent(Player):
 
     def reset_for_new_hand(self):
         super().reset_for_new_hand()
+        self.actor_hidden = None
+        self.critic_hidden = None
 
 

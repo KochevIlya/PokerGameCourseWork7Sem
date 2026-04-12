@@ -12,12 +12,21 @@ class NNData:
 
 
     @staticmethod
-    def add_buffer(args):
-        NNData.episode_buffer.append(args)
+    def add_episode(trajectory):
+        """
+        Добавляет целую траекторию (одну раздачу) в буфер.
+        trajectory: dict с ключами s_actors, s_critics, histories, actions, returns, ...
+        """
+        NNData.episode_buffer.append(trajectory)
 
     @staticmethod
     def is_full():
-        return len(NNData.episode_buffer) >= NNData.BATCH_SIZE
+        """Считает суммарное количество шагов во всех траекториях."""
+        if len(NNData.episode_buffer) == 0:
+            return False
+        total_steps = sum(len(traj['actions']) for traj in NNData.episode_buffer)
+        return total_steps >= NNData.BATCH_SIZE
+
     @staticmethod
     def get_buffer():
         return NNData.episode_buffer

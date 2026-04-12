@@ -1,8 +1,9 @@
 import os
+from collections import defaultdict
 
 
 class StaticLogger:
-    """Статический логгер (singleton)"""
+    """Статический логгер (singleton) с поддержкой множественных лог-файлов"""
 
     _instance = None
     _filename = "app.log"
@@ -10,27 +11,122 @@ class StaticLogger:
     _buffer = []
     _debug = False
 
+    # === Поддержка множественных логгеров ===
+    _experiment_mode = False
+    _experiment_dir = ""
+    _category_buffers = {}  # { category: [messages] }
+    _category_buffers_size = {}  # { category: buffer_size }
+    _default_category = "game"  # категория по умолчанию для StaticLogger.print()
+
     @staticmethod
     def print(*args):
-        """Статический метод для логирования"""
+        """Статический метод для логирования (пишет в категорию по умолчанию)"""
+        category = StaticLogger._default_category if StaticLogger._experiment_mode else None
+        StaticLogger.print_to(category, *args)
 
-        if StaticLogger._instance is None:
-            StaticLogger._instance = StaticLogger()
-
+    @staticmethod
+    def print_to(category: str, *args):
+        """
+        Запись сообщения в конкретную категорию лога.
+        Если category=None, использует старый режим (один файл).
+        """
         msg = ' '.join(str(x) for x in args)
 
-        if StaticLogger._debug:
-            print(f"[LOGGER] Добавляем в буфер: {msg[:50]}...")
+        # Старый режим (один файл)
+        if category is None:
+            if StaticLogger._instance is None:
+                StaticLogger._instance = StaticLogger()
+            StaticLogger._buffer.append(msg)
+            if len(StaticLogger._buffer) >= StaticLogger._buffer_size:
+                StaticLogger._save()
+            return
 
-        StaticLogger._buffer.append(msg)
+        # Новый режим (множественные логи)
+        if category not in StaticLogger._category_buffers:
+            StaticLogger._category_buffers[category] = []
+            StaticLogger._category_buffers_size[category] = StaticLogger._buffer_size
 
-        if StaticLogger._debug:
-            print(f"[LOGGER] Размер буфера: {len(StaticLogger._buffer)}/{StaticLogger._buffer_size}")
+        StaticLogger._category_buffers[category].append(msg)
 
-        if len(StaticLogger._buffer) >= StaticLogger._buffer_size:
+        if len(StaticLogger._category_buffers[category]) >= StaticLogger._category_buffers_size[category]:
+            StaticLogger._save_category(category)
+
+    @staticmethod
+    def _save_category(category: str):
+        """Запись буфера конкретной категории в файл"""
+        if category not in StaticLogger._category_buffers:
+            return
+
+        buffer = StaticLogger._category_buffers[category]
+        if not buffer:
+            return
+
+        try:
+            filename = f"{category}.log"
+            filepath = os.path.join(StaticLogger._experiment_dir, filename)
+
+            # Создаём директорию если нужно
+            directory = os.path.dirname(filepath)
+            if directory and not os.path.exists(directory):
+                os.makedirs(directory, exist_ok=True)
+
+            with open(filepath, 'a', encoding='utf-8') as f:
+                content = '\n'.join(buffer) + '\n'
+                f.write(content)
+
+            buffer.clear()
+
+        except Exception as e:
             if StaticLogger._debug:
-                print(f"[LOGGER] Буфер полон, вызываем _save()")
-            StaticLogger._save()
+                print(f"[LOGGER] ОШИБКА записи категории {category}: {e}")
+            buffer.clear()
+
+    @staticmethod
+    def configure_experiment_logs(experiment_name: str, buffer_size: int = 500):
+        """
+        Создаёт структуру папок для эксперимента и настраивает категориальные логи.
+
+        Структура:
+        📁 logs/
+          📁 {experiment_name}/
+            ├── 📄 game.log
+            ├── 📄 training.log
+            ├── 📄 loss.log
+            ├── 📄 validation.log
+            └── 📄 summary.log
+        """
+        # Определяем базовую директорию логов
+        base_log_dir = os.path.join(os.getcwd(), "logs")
+        StaticLogger._experiment_dir = os.path.join(base_log_dir, experiment_name)
+
+        # Создаём директорию
+        os.makedirs(StaticLogger._experiment_dir, exist_ok=True)
+
+        # Очищаем старые логи если существуют
+        categories = ["game", "training", "loss", "validation", "summary", "decisions"]
+        for cat in categories:
+            filepath = os.path.join(StaticLogger._experiment_dir, f"{cat}.log")
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write('')
+            StaticLogger._category_buffers[cat] = []
+            StaticLogger._category_buffers_size[cat] = buffer_size
+
+        # Включаем режим эксперимента
+        StaticLogger._experiment_mode = True
+        StaticLogger._buffer_size = buffer_size
+
+        if StaticLogger._debug:
+            print(f"[LOGGER] Experiment logs configured: {StaticLogger._experiment_dir}")
+            print(f"[LOGGER] Categories: {categories}")
+
+    @staticmethod
+    def flush_all():
+        """Принудительная запись всех категорий"""
+        if StaticLogger._experiment_mode:
+            for category in list(StaticLogger._category_buffers.keys()):
+                StaticLogger._save_category(category)
+        else:
+            StaticLogger.flush()
 
     @staticmethod
     def _save():

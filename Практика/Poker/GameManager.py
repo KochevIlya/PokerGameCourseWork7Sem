@@ -62,11 +62,11 @@ class GameManager:
 
     def start_game(self, num_rounds, game_counter=0):
         self.games_count = game_counter
-        StaticLogger.print(f"Game number: {self.games_count}\n")
+        StaticLogger.print_to("game", f"Game number: {self.games_count}\n")
         for i in range(num_rounds):
             self.round = i
-            StaticLogger.print(f"Round {i}\n")
-            StaticLogger.print(f"{str(self.game)}\n")
+            StaticLogger.print_to("game", f"Round {i}\n")
+            StaticLogger.print_to("game", f"{str(self.game)}\n")
             self._prepare_round()
 
 
@@ -76,9 +76,9 @@ class GameManager:
                 return self.game.registered_players
             else:
                 self.game.next_blinds()
-                StaticLogger.print(f"After preparing: {str(self.game)}\n")
-                StaticLogger.print(f'\033[32mВыигрывает(ют): {self.start_round()}\033[0m\n')
-        StaticLogger.print(f"Game is over, because of the rounds amount")
+                StaticLogger.print_to("game", f"After preparing: {str(self.game)}\n")
+                StaticLogger.print_to("game", f'\033[32mВыигрывает(ют): {self.start_round()}\033[0m\n')
+        StaticLogger.print_to("game", f"Game is over, because of the rounds amount")
         self.game.registered_players.sort(key=lambda p: p.stack, reverse=True)
 
         return self.game.registered_players
@@ -148,14 +148,23 @@ class GameManager:
 
                 if pm.episode_data:
                     pm.train_actor_critic(final_reward)
-                    StaticLogger.print("Target Network updated!")
+                    StaticLogger.print_to("training", "Target Network updated!")
+
+                # Запись результата для rolling-статистики
+                is_winner = (player in winners)
+                pm.record_game_result(
+                    is_winner=is_winner,
+                    net_profit=net_profit,
+                    pot_size=self.pot,
+                    big_blind=self.game.min_bet
+                )
 
 
         for winner in winners:
             winner.add_stack(share)
 
     def show_current_situation(self):
-        StaticLogger.print(f"\nКарты на столе: {self.table}")
+        StaticLogger.print_to("game", f"\nКарты на столе: {self.table}")
         
 
     def _prepare_round(self):
@@ -262,7 +271,7 @@ class GameManager:
 
                         all_player_hands=all_player_hands  # Передаем скрытую информацию
                     )
-                    StaticLogger.print(f'S_actor: {s_actor}\nS_critic: {s_critic}')
+                    StaticLogger.print_to("decisions", f'S_actor: {s_actor}\nS_critic: {s_critic}')
 
                     pm.ask_decision(s_actor, s_critic, can_check)
 
@@ -325,7 +334,7 @@ class GameManager:
                         self.pot += to_amount
                         players_to_act.remove(player)
 
-                StaticLogger.print(pm.player)
+                StaticLogger.print_to("decisions", pm.player)
 
                 for p in self.game.players:
                     if isinstance(p, NeuralACAgent) and p != player:
@@ -352,7 +361,7 @@ class GameManager:
             start = sb_index
 
         order = players[start:] + players[:start]
-        StaticLogger.print(f"Порядок: {order}")
+        StaticLogger.print_to("game", f"Порядок: {order}")
         return [p for p in order if p.in_hand]
 
     def get_another_player(self, pm:PlayerManager):
