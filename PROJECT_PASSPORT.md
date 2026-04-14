@@ -1,7 +1,8 @@
 # 📘 Паспорт проекта: Texas Hold'em Poker AI
 
-> **Курсовая работа** | 8 семестр | 2026  
-> **Технология:** Actor-Critic с Dual-LSTM, Skip Connections, Policy Gradient  
+> **Курсовая работа** | 8 семестр | 2026
+> **Статус:** ✅ Активная разработка (100,000+ игр обучено)
+> **Технология:** Actor-Critic с Dual-LSTM, Skip Connections, Policy Gradient
 > **Фреймворк:** PyTorch + eval7 (Monte Carlo Hand Evaluator)
 
 ---
@@ -17,6 +18,8 @@
 | **Цель** | Обучение нейросетевого агента игре в покер Texas Hold'em против ботов с разными стратегиями |
 | **Метод обучения** | On-policy Policy Gradient (Actor-Critic) с Advantage и Entropy Decay |
 | **Архитектура сети** | Dual-LSTM Actor-Critic с Skip Connections и LayerNorm |
+| **Размер кодовой базы** | 68 Python-файлов, 47 моделей, 25+ экспериментов |
+| **Статус обучения** | 100,000+ игр проведено, чекпоинты сохранены |
 
 ---
 
@@ -174,10 +177,10 @@ else: fold
 
 | Компонент | Слои | Размеры | Learning Rate |
 |-----------|------|---------|---------------|
-| **Actor LSTM** | `nn.LSTM` | input=3, hidden=16 | 1e-4 |
-| **Critic LSTM** | `nn.LSTM` | input=3, hidden=16 | 5e-4 |
-| **Actor Net** | Linear → ReLU → Linear → ReLU → Linear | 26→128→64→3 | 1e-4 |
-| **Critic Net** | Linear → ReLU → LayerNorm → Cat(2) → Linear → ReLU → Linear | 27→128→130→64→1 | 5e-4 |
+| **Actor LSTM** | `nn.LSTM` | input=3, hidden=16 | 2e-4 |
+| **Critic LSTM** | `nn.LSTM` | input=3, hidden=16 | 1e-4 |
+| **Actor Net** | Linear → ReLU → Linear → ReLU → Linear | 26→128→64→3 | 2e-4 |
+| **Critic Net** | Linear → ReLU → LayerNorm → Cat(2) → Linear → ReLU → Linear | 27→128→130→64→1 | 1e-4 |
 
 ### 5.3. Skip Connections в Критике
 
@@ -224,14 +227,16 @@ else: fold
 |----------|----------|----------|
 | `BATCH_SIZE` | 4096 шагов | Шагов в буфере перед обновлением |
 | `gamma` | 0.99 | Дисконтирование наград |
-| `actor_lr` | 1e-4 | Learning rate Актора |
-| `critic_lr` | 5e-4 | Learning rate Критика |
-| `entropy_coef` | 0.05 → 0.002 | Коэффициент энтропии (decay 0.999) |
-| `entropy_update_interval` | 100 игр | Частота уменьшения энтропии |
+| `actor_lr` | 2e-4 | Learning rate Актора (ускоренное обучение) |
+| `critic_lr` | 1e-4 | Learning rate Критика (стабильная оценка) |
+| `entropy_coef` | 0.0001 → 0.00001 | Коэффициент энтропии (decay 0.995) |
+| `entropy_update_interval` | 200 игр | Частота уменьшения энтропии |
 | `epoch_interval` | 200 игр | Частота вывода статистики |
 | `history_len` | 10 | Длина истории действий оппонентов |
 | `lstm_hidden` | 16 | Размер скрытого состояния LSTM |
 | `hand_eval_iters` | 200 | Итераций Monte Carlo для оценки руки |
+| `gradient_clip` | 0.5 | Максимальная норма градиента |
+| `huber_delta` | 1.0 | Параметр Huber Loss для Критика |
 
 ### 6.3. Награды (Rewards)
 
@@ -240,11 +245,25 @@ if player in winners:
     net_profit = pot - player.bet
 else:
     net_profit = -player.bet
+    # Reward Shaping: штраф за проигрыш на шоудауне
+    if not player.is_folded:
+        net_profit *= 1.5  # Showdown penalty
 
-final_reward = net_profit / min_bet / 100.0  # Нормализация через Big Blind
+final_reward = net_profit / min_bet  # Нормализация через Big Blind
 ```
 
-### 6.4. Backpropagation Through Time (BPTT)
+### 6.4. Action Masking
+
+Перед сэмплированием/выбором действия применяется маска легальных действий:
+
+```python
+legal_mask = torch.tensor([True, can_raise, True], device=self.device)  # [fold, raise, call]
+action_logits = action_logits.masked_fill(~legal_mask, -1e9)
+```
+
+Маска сохраняется в `episode_data` и применяется повторно при обучении в `_update_network()`.
+
+### 6.5. Backpropagation Through Time (BPTT)
 
 Внутри `_update_network()` раздача прогоняется **пошагово** в цикле:
 
@@ -316,9 +335,9 @@ logs/
 D:\Универ\8 сем\Курсовая\Практика\
 ├── Poker/
 │   ├── __init__.py              # Экспорт всех модулей
-│   ├── ActorCritic.py           # Модель ActorCriticNet + NeuralACAgent
+│   ├── ActorCritic.py           # Модель ActorCriticNet + NeuralACAgent (Dual-LSTM)
 │   ├── NeuralACAgentManager.py  # Менеджер обучения и действий (act, train, update)
-│   ├── GameManager.py           # Игровой цикл, ставки, стадии
+│   ├── GameManager.py           # Игровой цикл, ставки, стадии, reward shaping
 │   ├── Game.py                  # Состояние стола, блайнды, игроки
 │   ├── HandCalculator.py        # Monte Carlo оценка руки (eval7)
 │   ├── Logger.py                # StaticLogger (многокатегориальный)
@@ -342,7 +361,11 @@ D:\Универ\8 сем\Курсовая\Практика\
 │   ├── Experiment_Aggressor_after_calling.py  # Основной эксперимент
 │   ├── Big_Experiment_better_NN.py
 │   ├── Experiment_with_AC_model.py
-│   └── ... (20+ экспериментов)
+│   ├── testing_without_ent_and_training.py    # Тестирование без энтропии
+│   └── ... (25+ экспериментов)
+├── tests/
+│   ├── conftest.py              # Конфигурация pytest
+│   └── mocks.py                 # Моки для тестирования
 ├── main.py                    # Точка входа (базовый запуск)
 ├── check_model_keys.py        # Проверка совместимости чекпоинтов
 ├── models/                    # Сохранённые модели (.pth)
@@ -368,11 +391,19 @@ D:\Универ\8 сем\Курсовая\Практика\
 ### 9.2. Параметры типичного эксперимента
 
 ```python
-num_games = 10000
-num_rounds = 30
-learning_num_games = 50
-learning_num_rounds = 50
+num_games = 100_000          # Общее количество игр
+num_rounds = 30              # Раундов в каждой игре
+learning_num_games = 50      # Игр для обучения (legacy)
+learning_num_rounds = 50     # Раундов для обучения (legacy)
 ```
+
+### 9.3. Основной эксперимент (Experiment_Aggressor_after_calling.py)
+
+- **Загрузка модели:** `Big_Experiment_better_NN.pth`
+- **Начальная валидация:** `validate_hand_values()` сразу после загрузки
+- **Чекпоинты:** каждые 5000 игр с валидацией и диагностикой
+- **График:** matplotlib визуализация win rate over time
+- **Финальная статистика:** win rate, количество побед, NNData.show_losses()
 
 ---
 
@@ -390,7 +421,7 @@ learning_num_rounds = 50
 
 **Проблема:** Не было видно, какие действия выбирает модель (риск «схлопывания» в вечный Fold).
 
-**Решение:** Счётчик действий `action_counter` с выводом каждые 200 игр в `summary.log`.
+**Решение:** Счётчик действий `action_counter` с выводом каждые 1000 игр в `summary.log`.
 
 **Файл:** `NeuralACAgentManager.py`
 
@@ -414,7 +445,65 @@ learning_num_rounds = 50
 
 **Проблема:** Нормализация внутри траектории искажала исходные награды.
 
-**Решение:** Убраны `(returns - mean) / std` и `(advantage - mean) / std`.
+**Решение:** Убраны `(returns - mean) / std` и `(advantage - mean) / std`. Используется глобальная нормализация Advantage по всему батчу.
+
+### 10.6. Экстремальное уменьшение коэффициента энтропии
+
+**Проблема:** Высокая энтропия мешала эксплуатации обученной стратегии.
+
+**Решение:**
+- `entropy_coef`: 0.001 → 0.0001 (в 10 раз меньше)
+- `entropy_coef_min`: 0.00001
+- `entropy_decay`: 0.995
+- Добавлены аварийные сбросы энтропии после 2000 и 5000 игр
+
+**Файл:** `NeuralACAgentManager.py`
+
+### 10.7. Action Masking для легальных действий
+
+**Проблема:** Модель могла выбирать нелегальные действия (raise без фишек).
+
+**Решение:** Маска легальных действий `legal_mask` применяется к логитам через `masked_fill(~legal_mask, -1e9)` как в `act()`, так и в `_update_network()`.
+
+**Файл:** `NeuralACAgentManager.py`
+
+### 10.8. Раздельные Learning Rates для Актора и Критика
+
+**Проблема:** Одинаковые LR не позволяли Актору исследовать стратегии быстрее, чем Критик оценивает.
+
+**Решение:**
+- Actor LSTM + Net: `lr = 2e-4`
+- Critic LSTM + Net: `lr = 1e-4`
+
+**Файл:** `ActorCritic.py`
+
+### 10.9. Reward Shaping: штраф за проигрыш на шоудауне
+
+**Проблема:** Агент не различал «умный фолд» и «проигрыш на шоудауне».
+
+**Решение:** Если игрок не фолднул и проиграл — штраф ×1.5 к net_profit.
+
+**Файл:** `GameManager.py`
+
+### 10.10. Диагностика агента (diagnose_agent)
+
+**Решение:** Комплексная диагностика каждые 2000 игр:
+1. `validate_hand_values()` — проверка Критика
+2. `log_action_frequencies()` — проверка Актора
+3. Вывод гиперпараметров
+4. Интерпретация результатов
+
+**Файл:** `NeuralACAgentManager.py`
+
+### 10.11. Надёжная загрузка чекпоинтов с проверкой архитектуры
+
+**Решение:** Метод `load_ac_agent()` теперь:
+- Определяет архитектуру чекпоинта (Sequential vs Skip Connection)
+- Фильтрует несовместимые веса Критика
+- Проверяет совпадение ключей и размеров тензоров
+- Выводит детальный отчёт о загрузке
+
+**Файл:** `NeuralACAgentManager.py`
 
 ---
 
@@ -431,6 +520,7 @@ learning_num_rounds = 50
 | `random`, `itertools` | Перемешивание, комбинации карт |
 | `collections.deque` | Буферы с ограничением размера |
 | `os` | Работа с файловой системой (логи, модели) |
+| `pytest` | Тестирование (опционально) |
 
 ---
 
@@ -490,9 +580,49 @@ checkpoint = {
 }
 ```
 
+### 13.1. Доступные модели
+
+Проект содержит 47 сохранённых чекпоинтов в директориях:
+- `models/` — основные модели (checkpoint_game_5000.pth ... checkpoint_game_100000.pth)
+- `Практика/models/` — локальные копии
+- `Практика/Experiments/models/` — экспериментальные модели
+
+**Ключевые модели:**
+| Файл | Описание |
+|------|----------|
+| `Big_Experiment_better_NN.pth` | Основная предобученная модель |
+| `neural_ac_agent_for_course_LSTM_after_calling.pth` | Финальная модель для курсовой |
+| `checkpoint_game_*.pth` | Чекпоинты каждые 5000 игр (до 100,000) |
+
+### 13.2. Совместимость чекпоинтов
+
+Система загрузки поддерживает три версии архитектуры:
+1. **Старая:** Sequential Critic (`critic_net`)
+2. **Средняя:** Skip Connections без LayerNorm
+3. **Новая:** Skip Connections + LayerNorm (`critic_layer_norm`)
+
+При загрузке автоматически:
+- Определяется версия архитектуры
+- Фильтруются несовместимые веса
+- Выводится детальный отчёт о совпадении ключей
+
 ---
 
-## 14. Контактная информация
+## 15. Тестирование
+
+### 15.1. Инфраструктура
+
+Проект содержит базовую инфраструктуру для тестирования:
+- `tests/conftest.py` — конфигурация pytest
+- `tests/mocks.py` — моки для изоляции компонентов
+
+### 15.2. Проверка совместимости моделей
+
+Скрипт `check_model_keys.py` позволяет проверить совместимость чекпоинтов без загрузки весов.
+
+---
+
+## 16. Контактная информация
 
 > **Автор:** [Студент 8 семестра]  
 > **Учебное заведение:** [Университет]  

@@ -21,7 +21,7 @@ players = [
     ]
 
 pm = NeuralACAgentManager(players[1])
-pm.load_ac_agent(filename="Experiment_with_better_NN.pth")
+pm.load_ac_agent(filename="Big_Experiment_better_NN.pth")
 
 # Начальная валидация после загрузки модели
 print("\n🧪 Initial validation after model load:")

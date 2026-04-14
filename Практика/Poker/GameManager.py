@@ -143,6 +143,10 @@ class GameManager:
                     net_profit = self.pot - player.get_bet()
                 else:
                     net_profit = -player.get_bet()
+                    # Reward Shaping: штраф за проигрыш на шоудауне
+                    # Если игрок НЕ фолднул и проиграл — он потерял больше, чем при fold
+                    if not player.is_folded:
+                        net_profit *= 1.5  # Showdown penalty (×1.5)
 
                 # Reward: награда в Big Blinds (без лишнего масштабирования)
                 # net_profit / min_bet → диапазон ~[-10, +10] вместо ~[-0.1, +0.1]
@@ -151,7 +155,6 @@ class GameManager:
                 if pm.episode_data:
                     pm.train_actor_critic(final_reward)
                     pm.update_entropy_coef()  # Entropy Decay
-                    StaticLogger.print_to("training", "Target Network updated!")
 
                 # Запись результата для rolling-статистики
                 is_winner = (player in winners)

@@ -82,6 +82,7 @@ class PlayerManager:
     def fold(self):
         """Игрок пасует."""
         self.player.in_hand = False
+        self.player.is_folded = True
         self.player.set_decision("fold")
 
     def all_in(self):

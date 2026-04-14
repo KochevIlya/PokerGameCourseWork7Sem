@@ -10,7 +10,7 @@ learning_num_rounds = 50
 
 
 num_rounds = 30
-num_games = 10_000
+num_games = 5_000
 
 
 game_winners = []
@@ -21,7 +21,7 @@ players = [
     ]
 
 pm = NeuralACAgentManager(players[1])
-pm.load_ac_agent(filename="Big_Experiment_better_NN.pth")
+pm.load_ac_agent(filename="neural_ac_agent_for_course_LSTM_after_calling.pth")
 num_wins = { p:0 for p in players}
 
 

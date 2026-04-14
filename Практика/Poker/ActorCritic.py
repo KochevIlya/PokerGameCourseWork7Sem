@@ -102,10 +102,11 @@ class NeuralACAgent(Player):
 
         # Learning Rates: Актор БЫСТРЕЕ Критика
         # Актор должен успевать пробовать стратегии, пока Критик ещё сомневается
+        # ФОРСИРОВАНИЕ: actor_lr поднят до 1e-3 для разгона логитов
         self.optimizer = optim.Adam([
             # Actor — ускоренное обучение (пробует стратегии)
-            {'params': self.ac_net.actor_net.parameters(), 'lr': 2e-4},
-            {'params': self.ac_net.actor_lstm.parameters(), 'lr': 2e-4},
+            {'params': self.ac_net.actor_net.parameters(), 'lr': 1e-3},
+            {'params': self.ac_net.actor_lstm.parameters(), 'lr': 1e-3},
 
             # Critic — медленное обучение (не обнуляет Advantage слишком быстро)
             {'params': self.ac_net.critic_fc1.parameters(), 'lr': 1e-4},

@@ -31,13 +31,17 @@ class NeuralACAgentManager(PlayerManager):
         self.action_dim = 3
         self.history_len = 10
 
-        # --- Entropy Decay: от exploration к exploitation ---
-        # УСКОРЕННОЕ ЗАТУХАНИЕ: бот должен начать «наглеть», а не играть случайно
-        self.entropy_coef = 0.001          # Стартовое (уже маленькое)
-        self.entropy_coef_min = 0.0001     # Минимальное (было 0.0005)
-        self.entropy_decay = 0.995         # Быстрое затухание (было 0.9995)
-        self.entropy_update_interval = 200  # Чаще обновлять (было 500)
+        # --- Entropy Decay: ЭКСПЕРИМЕНТ — минимальная энтропия ---
+        # ЭКСПЛУАТАЦИЯ: Актор выбирает то, в чём уверен больше всего
+        self.entropy_coef = 0.0                # ОТКЛЮЧЕНО: максимальная эксплуатация
+        self.entropy_coef_min = 0.00001        # Минимальное
+        self.entropy_decay = 0.995             # Затухание
+        self.entropy_update_interval = 200     # Частота обновления
         self.last_entropy_update = 0
+
+        # --- Advantage Scaling: усиление обучающего сигнала для Актора ---
+        # Решает проблему слабых/сплющенных логитов (низкая дисперсия действий)
+        self.advantage_scale = 10.0
 
         # --- Rolling статистика обучения ---
         self.results_buffer = deque(maxlen=500)    # (is_winner, net_profit, pot_size)
@@ -54,6 +58,11 @@ class NeuralACAgentManager(PlayerManager):
         self.action_counter = {0: 0, 1: 0, 2: 0}  # fold, raise, call
         self.games_since_log = 0
         self.action_log_interval = 1000
+
+        # === ЛОГИРОВАНИЕ ЛОГИТОВ (раз в 100 игр) ===
+        self.logits_log_interval = 100  # Частота логирования логитов
+        self.logits_games_counter = 0  # Счётчик игр для логирования логитов
+        self.logits_samples = []  # Буфер для сбора сэмплов логитов за игру
 
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -96,6 +105,33 @@ class NeuralACAgentManager(PlayerManager):
         self.game_counter += 1
         self.big_blind = big_blind
         self.results_buffer.append((is_winner, net_profit, pot_size))
+
+        # === Вывод статистики логитов раз в 100 игр ===
+        self.logits_games_counter += 1
+        if self.logits_games_counter >= self.logits_log_interval and self.logits_samples:
+            # Вычисляем статистику за последние 100 игр
+            avg_logits = np.mean(self.logits_samples)
+            min_logits = np.min(self.logits_samples)
+            max_logits = np.max(self.logits_samples)
+            std_logits = np.std(self.logits_samples)
+
+            StaticLogger.print_to(
+                "training",
+                f"[LOGITS STATS over {self.logits_games_counter} games] "
+                f"avg={avg_logits:.4f} | std={std_logits:.4f} | "
+                f"min={min_logits:.4f} | max={max_logits:.4f} | "
+                f"samples={len(self.logits_samples)}"
+            )
+
+            # Диагностика: предупреждения при аномальных значениях
+            if avg_logits < 0.01:
+                StaticLogger.print_to("training", "⚠️ [ALERT] LOGITS DEAD! avg < 0.01 — веса обнулены!")
+            elif avg_logits < 0.1:
+                StaticLogger.print_to("training", "⚡ [WARN] LOGITS WEAK! avg < 0.1 — слабые градиенты")
+
+            # Сброс счётчиков
+            self.logits_games_counter = 0
+            self.logits_samples = []
 
     def get_training_stats(self):
         """
@@ -378,6 +414,12 @@ class NeuralACAgentManager(PlayerManager):
             self.player.actor_hidden = (next_actor_h[0].detach(), next_actor_h[1].detach())
             self.player.critic_hidden = (next_critic_h[0].detach(), next_critic_h[1].detach())
 
+        # === ЛОГИРОВАНИЕ ЛОГИТОВ (Диагностика "мёртвых" весов, раз в 100 игр) ===
+        # Собираем сэмплы логитов в течение всей игры
+        with torch.no_grad():
+            logits_mean_abs = action_logits.abs().mean().item()
+            self.logits_samples.append(logits_mean_abs)
+
         # === ACTION MASKING: маскируем нелегальные действия ===
         # action_idx: 0=fold, 1=raise, 2=call
         # Создаём маску легальных действий: [fold, raise, call]
@@ -465,8 +507,6 @@ class NeuralACAgentManager(PlayerManager):
         self.episode_data.clear()
 
         if NNData.is_full():
-            total_steps = sum(len(traj['actions']) for traj in NNData.episode_buffer)
-            StaticLogger.print_to("training", f"Target Network updated!!!, Hands: {len(NNData.episode_buffer)}, Steps: {total_steps}")
             self._update_network()
 
 
@@ -571,7 +611,7 @@ class NeuralACAgentManager(PlayerManager):
         global_returns = torch.cat(all_returns)
         global_entropy = torch.stack(all_entropies).mean()
 
-        # === 3. ГЛОБАЛЬНЫЙ ADVANTAGE С НАДЁЖНОЙ НОРМАЛИЗАЦИЕЙ ===
+        # === 3. ГЛОБАЛЬНЫЙ ADVANTAGE С МАСШТАБИРОВАНИЕМ ===
         global_advantage = global_returns - global_values.detach()
 
         # Отладка: печатаем сырые значения ПЕРЕД нормализацией
@@ -584,6 +624,21 @@ class NeuralACAgentManager(PlayerManager):
         # Чтобы нормализация не производила огромные числа из микроскопического std
         if global_advantage.numel() > 1 and adv_std_raw > 1e-3:
             global_advantage = (global_advantage - adv_mean_raw) / max(adv_std_raw, 1.0)
+
+        # Логируем std ПОСЛЕ нормализации, ДО масштабирования
+        adv_std_normalized = global_advantage.std().item()
+
+        # МАСШТАБИРОВАНИЕ Advantage: искусственно усиливаем обучающий сигнал для Актора
+        # Решает проблему слабых/сплющенных логитов (низкая дисперсия действий)
+        global_advantage = global_advantage * self.advantage_scale
+
+        # Логируем std ПОСЛЕ масштабирования
+        adv_std_scaled = global_advantage.std().item()
+
+        # Логируем размах логитов (raw logits max - min) для контроля дисперсии
+        logits_min = action_logits.min().item()
+        logits_max = action_logits.max().item()
+        logits_range = logits_max - logits_min
 
         # === 4. ИТОГОВЫЕ ЛОССЫ ===
         actor_loss = -(global_log_probs * global_advantage).mean()
@@ -613,25 +668,29 @@ class NeuralACAgentManager(PlayerManager):
         # Очищаем буфер ПОСЛЕ успешного обновления
         NNData.clear()
 
-        # === ЛОГИРОВАНИЕ С ОТЛАДКОЙ ===
+        # === ЛОГИРОВАНИЕ С РАСШИРЕННОЙ ОТЛАДКОЙ ===
         self.loss_log.append((actor_loss.item(), critic_loss.item(), global_entropy.item()))
 
         StaticLogger.print_to("entropy",
             f"Entropy: {global_entropy.item():.4f} | "
             f"Adv(raw): {adv_mean_raw:.4f}±{adv_std_raw:.4f} | "
+            f"Adv(norm): ±{adv_std_normalized:.4f} | "
+            f"Adv(scaled): ±{adv_std_scaled:.4f} | "
+            f"LogitsRange: [{logits_min:.2f}, {logits_max:.2f}] (Δ={logits_range:.2f}) | "
             f"Returns: {returns_mean:.4f} | Values: {values_mean:.4f} | "
             f"Actor grad: {actor_grad_norm:.6f} | logits_grad: {logits_requires_grad} | "
             f"Actor: {actor_loss.item():.4f} | Critic: {critic_loss.item():.4f} | "
-            f"EntCoef: {self.entropy_coef:.6f}"
+            f"EntCoef: {self.entropy_coef:.6f} | AdvScale: {self.advantage_scale}"
         )
 
         StaticLogger.print_to(
             "loss",
-            f"Update ({num_trajectories} hands, GLOBAL adv): "
+            f"Update ({num_trajectories} hands, SCALED adv): "
             f"Loss={total_loss.item():.4f}, "
             f"Actor={actor_loss.item():.4f}, "
             f"Critic={critic_loss.item():.4f}, "
-            f"AdvStd={adv_std_raw:.4f}, ActorGrad={actor_grad_norm:.6f}"
+            f"AdvStd(raw/norm/scaled)={adv_std_raw:.4f}/{adv_std_normalized:.4f}/{adv_std_scaled:.4f}, "
+            f"LogitsRange={logits_range:.2f}, ActorGrad={actor_grad_norm:.6f}"
         )
 
         # КОНСОЛЬНЫЙ ВЫВОД для быстрого контроля
@@ -644,8 +703,9 @@ class NeuralACAgentManager(PlayerManager):
 
         print(f"✅ [UPDATE] {num_trajectories} hands | Loss={total_loss.item():.4f} | "
               f"A={actor_loss.item():.4f} | C={critic_loss.item():.4f} | "
-              f"Ent={global_entropy.item():.4f} | AdvStd={adv_std_raw:.4f} | "
-              f"ActorGrad={actor_grad_norm:.6f} | R={returns_mean:.2f} | V={values_mean:.2f}")
+              f"Ent={global_entropy.item():.4f} | AdvStd(scaled)={adv_std_scaled:.4f} | "
+              f"LogitsRange={logits_range:.2f} | ActorGrad={actor_grad_norm:.6f} | "
+              f"R={returns_mean:.2f} | V={values_mean:.2f}")
 
 
     def ask_decision(self, s_actor: list, s_critic: list, can_check=False, can_raise=True):
@@ -706,7 +766,7 @@ class NeuralACAgentManager(PlayerManager):
 
 
 
-    def save_ac_agent(self, filename="Big_Experiment_better_NN.pth", save_dir="models"):
+    def save_ac_agent(self, filename="Experiment_with_better_NN.pth", save_dir="models"):
         """
         Сохраняет состояние NeuralACAgent (Actor-Critic)
 

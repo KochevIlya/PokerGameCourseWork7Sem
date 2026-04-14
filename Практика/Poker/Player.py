@@ -16,6 +16,7 @@ class Player:
         self.hole_cards = []
         self.best_hand = None
         self.in_hand = False
+        self.is_folded = False  # Фолднул ли в текущей раздаче
         self.bet = 0.0
         self.decision = None
 
@@ -25,6 +26,7 @@ class Player:
         self.hole_cards = []
         self.best_hand = None
         self.in_hand = False
+        self.is_folded = False
         self.bet = 0.0
         self.decision = None
 
