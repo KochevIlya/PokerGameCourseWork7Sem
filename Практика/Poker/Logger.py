@@ -82,18 +82,19 @@ class StaticLogger:
             buffer.clear()
 
     @staticmethod
-    def configure_experiment_logs(experiment_name: str, buffer_size: int = 500):
+    def configure_experiment_logs(experiment_name: str, default_buffer: int = 500):
         """
         Создаёт структуру папок для эксперимента и настраивает категориальные логи.
 
         Структура:
         📁 logs/
           📁 {experiment_name}/
-            ├── 📄 game.log
-            ├── 📄 training.log
-            ├── 📄 loss.log
-            ├── 📄 validation.log
-            └── 📄 summary.log
+            ├── 📄 game.log          (buffer: 2000 — редко пишется)
+            ├── 📄 training.log      (buffer: 50  — почти онлайн)
+            ├── 📄 loss.log          (buffer: 10  — почти онлайн)
+            ├── 📄 entropy.log       (buffer: 1   — мгновенно)
+            ├── 📄 validation.log    (buffer: 1   — мгновенно)
+            └── 📄 summary.log       (buffer: 1   — мгновенно)
         """
         # Определяем базовую директорию логов
         base_log_dir = os.path.join(os.getcwd(), "logs")
@@ -102,22 +103,32 @@ class StaticLogger:
         # Создаём директорию
         os.makedirs(StaticLogger._experiment_dir, exist_ok=True)
 
+        # Разные размеры буфера для категорий
+        category_configs = {
+            "game": 10000,       # Большой буфер — много игровых событий
+            "training": 500,     # Почти онлайн — статистика обучения
+            "loss": 10,         # Почти онлайн — каждый update сети
+            "entropy": 1,       # Мгновенно — энтропия при каждом update
+            "validation": 1,    # Мгновенно — валидационные сообщения
+            "summary": 1,       # Мгновенно — финальная статистика
+        }
+
         # Очищаем старые логи если существуют
-        categories = ["game", "training", "loss", "validation", "summary", "decisions"]
-        for cat in categories:
+        for cat, buf_size in category_configs.items():
             filepath = os.path.join(StaticLogger._experiment_dir, f"{cat}.log")
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write('')
             StaticLogger._category_buffers[cat] = []
-            StaticLogger._category_buffers_size[cat] = buffer_size
+            StaticLogger._category_buffers_size[cat] = buf_size
 
         # Включаем режим эксперимента
         StaticLogger._experiment_mode = True
-        StaticLogger._buffer_size = buffer_size
+        StaticLogger._buffer_size = default_buffer
 
         if StaticLogger._debug:
             print(f"[LOGGER] Experiment logs configured: {StaticLogger._experiment_dir}")
-            print(f"[LOGGER] Categories: {categories}")
+            print(f"[LOGGER] Categories: {list(category_configs.keys())}")
+            print(f"[LOGGER] Buffer sizes: {category_configs}")
 
     @staticmethod
     def flush_all():

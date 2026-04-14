@@ -27,13 +27,12 @@ class ActorCriticNet(nn.Module):
             nn.Linear(64, action_size)
         )
 
-        self.critic_net = nn.Sequential(
-            nn.Linear(critic_state_size + lstm_hidden, 128),
-            nn.ReLU(),
-            nn.Linear(128, 64),
-            nn.ReLU(),
-            nn.Linear(64, 1)
-        )
+        # Critic с Skip Connections: ключевые признаки (hand_strength, avg_opp_strength)
+        # передаются напрямую во второй слой, чтобы не "размываться"
+        self.critic_fc1 = nn.Linear(critic_state_size + lstm_hidden, 128)
+        self.critic_layer_norm = nn.LayerNorm(128)  # Нормализация для выравнивания масштаба
+        self.critic_fc2 = nn.Linear(128 + 2, 64)  # 128 + 2 key features
+        self.critic_fc3 = nn.Linear(64, 1)
 
     def forward(self, s_actor, s_critic, history, actor_hidden=None, critic_hidden=None):
         # Ветка Актера
@@ -51,9 +50,37 @@ class ActorCriticNet(nn.Module):
         action_logits = self.actor_net(actor_input)
 
         if s_critic is not None:
-            state_value = self.critic_net(critic_input)
+            # === SKIP CONNECTIONS для Critic ===
+            # Выделяем ключевые признаки: hand_strength[0] + avg_opp_strength[10]
+            key_features = s_critic[:, [0, 10]]  # [Batch, 2]
+
+            # Первый слой + ReLU
+            out = F.relu(self.critic_fc1(critic_input))  # [Batch, 128]
+
+            # LayerNorm для выравнивания масштаба признаков
+            out = self.critic_layer_norm(out)
+
+            # Skip Connection: конкатенация с ключевыми признаками
+            combined = torch.cat([out, key_features], dim=1)  # [Batch, 130]
+
+            # Второй слой + финальный
+            out = F.relu(self.critic_fc2(combined))  # [Batch, 64]
+            state_value = self.critic_fc3(out)  # [Batch, 1]
 
         return action_logits, state_value, next_actor_hidden, next_critic_hidden
+
+    def get_critic_value(self, s_critic, history, critic_hidden=None):
+        """
+        Возвращает предсказанное значение Критика для заданного состояния.
+        Используется для валидации (понимает ли сеть силу руки).
+        """
+        with torch.no_grad():
+            # Создаём фиктивный actor input (не важен для Critic с Skip Connection)
+            s_actor = s_critic[:, :s_critic.size(1) - 1]  # Убираем avg_opp_strength
+            
+            _, value, _, _ = self.forward(s_actor, s_critic, history, 
+                                          actor_hidden=None, critic_hidden=critic_hidden)
+            return value.item()
 
 
 class NeuralACAgent(Player):
@@ -73,15 +100,19 @@ class NeuralACAgent(Player):
                                      history_len=history_len,
                                      action_input_dim=action_vector_size)
 
-        # Раздельные Learning Rate: Critic учится быстрее, Actor — медленнее
+        # Learning Rates: Актор БЫСТРЕЕ Критика
+        # Актор должен успевать пробовать стратегии, пока Критик ещё сомневается
         self.optimizer = optim.Adam([
-            # Actor — медленное обучение (стабильная стратегия)
-            {'params': self.ac_net.actor_net.parameters(), 'lr': 1e-4},
-            {'params': self.ac_net.actor_lstm.parameters(), 'lr': 1e-4},
+            # Actor — ускоренное обучение (пробует стратегии)
+            {'params': self.ac_net.actor_net.parameters(), 'lr': 2e-4},
+            {'params': self.ac_net.actor_lstm.parameters(), 'lr': 2e-4},
 
-            # Critic — быстрое обучение (точная оценка значений)
-            {'params': self.ac_net.critic_net.parameters(), 'lr': 5e-4},
-            {'params': self.ac_net.critic_lstm.parameters(), 'lr': 5e-4},
+            # Critic — медленное обучение (не обнуляет Advantage слишком быстро)
+            {'params': self.ac_net.critic_fc1.parameters(), 'lr': 1e-4},
+            {'params': self.ac_net.critic_layer_norm.parameters(), 'lr': 1e-4},
+            {'params': self.ac_net.critic_fc2.parameters(), 'lr': 1e-4},
+            {'params': self.ac_net.critic_fc3.parameters(), 'lr': 1e-4},
+            {'params': self.ac_net.critic_lstm.parameters(), 'lr': 1e-4},
         ], lr=1e-4)  # базовый LR (fallback)
 
         self.gamma = 0.99

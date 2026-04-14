@@ -144,12 +144,13 @@ class GameManager:
                 else:
                     net_profit = -player.get_bet()
 
-                # Reward Scaling: нормализуем через Big Blind
-                # Делим на BB и масштабируем, чтобы награды были в диапазоне ~[-1, 1]
-                final_reward = net_profit / self.game.min_bet / 100.0
+                # Reward: награда в Big Blinds (без лишнего масштабирования)
+                # net_profit / min_bet → диапазон ~[-10, +10] вместо ~[-0.1, +0.1]
+                final_reward = net_profit / self.game.min_bet
 
                 if pm.episode_data:
                     pm.train_actor_critic(final_reward)
+                    pm.update_entropy_coef()  # Entropy Decay
                     StaticLogger.print_to("training", "Target Network updated!")
 
                 # Запись результата для rolling-статистики
@@ -262,6 +263,10 @@ class GameManager:
 
                     can_check = (self.current_bet == player.bet)
 
+                    # Вычисляем can_raise: можно ли сделать минимальный рейз
+                    needed_for_raise = self.current_bet + self.game.min_bet
+                    can_raise = pm.can_apply(needed_for_raise)
+
                     s_actor, s_critic = pm.build_state_vectors(
                         current_bet_normalized=self.current_bet / self.max_chips,
                         current_stack_normalized=player.get_stack() / self.max_chips,
@@ -273,10 +278,9 @@ class GameManager:
 
                         all_player_hands=all_player_hands  # Передаем скрытую информацию
                     )
-                    StaticLogger.print_to("decisions", f'S_actor: {s_actor}\nS_critic: {s_critic}')
                     StaticLogger.print_to("game", f'S_actor: {s_actor}\nS_critic: {s_critic}')
 
-                    pm.ask_decision(s_actor, s_critic, can_check)
+                    pm.ask_decision(s_actor, s_critic, can_check, can_raise)
 
                 elif isinstance(pm, RandomPlayerManager):
                     pm.ask_decision(
@@ -337,7 +341,6 @@ class GameManager:
                         self.pot += to_amount
                         players_to_act.remove(player)
 
-                StaticLogger.print_to("decisions", pm.player)
                 StaticLogger.print_to("game", pm.player)
 
                 for p in self.game.players:

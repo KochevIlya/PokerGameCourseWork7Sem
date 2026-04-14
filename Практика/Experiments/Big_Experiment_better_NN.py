@@ -1,54 +1,41 @@
-import os
 from Практика.Poker import *
-
-# player_names = ["Ilya", "Stas", "Matvei", "Anton", "Artem", "Alex", "Nikita", "Semen"]
-# player_names = ["Ilya", "Stas"]
-# player_managers = []
+import numpy as np
+import matplotlib.pyplot as plt
 
 # Настраиваем категориальные логи эксперимента
-StaticLogger.configure_experiment_logs("Big_Experiment_better_NN", buffer_size=500)
+StaticLogger.configure_experiment_logs("Experiment_with_better_NN.log")
 
 learning_num_games = 50
 learning_num_rounds = 50
 
 
 num_rounds = 30
-num_games = 10000
+num_games = 10_000
 
-
-
-# players = [
-#         SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor"),
-#         SimpleGeneticBot([0.15, 0.05, 0.8], name="Tight"),
-#         SimpleGeneticBot([0.2, 0.6, 0.2], name="Bluff"),
-#         SimpleGeneticBot([0.33, 0.33, 0.33], name="Balanced"),
-#         SimpleGeneticBot([0.45, 0.45, 0.1], name="Maniac"),
-#     ]
 
 game_winners = []
 
-# bot_fabric = BotFabric()
-# bot_fabric.fit(learning_num_games, learning_num_rounds)
 players = [
         SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor"),
         NeuralACAgent()
     ]
 
+pm = NeuralACAgentManager(players[1])
+pm.load_ac_agent(filename="Big_Experiment_better_NN.pth")
 num_wins = { p:0 for p in players}
+
+
+# Начальная валидация после загрузки модели
+print("\n🧪 Initial validation after model load:")
+pm.validate_hand_values()
+
+
+win_rate_history = []  # История изменения винрейта
+games_counter = 0  # Счетчик игр
 
 for i in range(num_games):
 
     game = Game()
-
-    # players = [
-    #     SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor"),
-    #     SimpleGeneticBot([0.15, 0.05, 0.8], name="Tight"),
-    #     SimpleGeneticBot([0.2, 0.6, 0.2], name="Bluff"),
-    #     SimpleGeneticBot([0.33, 0.33, 0.33], name="Balanced"),
-    #     SimpleGeneticBot([0.45, 0.45, 0.1], name="Maniac"),
-    #     bot_fabric.get_result_bot()
-    # ]
-
 
     for player in players:
         game.add_player(player)
@@ -65,23 +52,48 @@ for i in range(num_games):
         if (winner.stack == best_stack):
             num_wins[winner] += 1
 
-    if (i + 1) % 500 == 0:
-        StaticLogger.flush_all()
-        # Печатаем rolling-статистику обучения
-        for p, pm in gameManager.pm.items():
-            if isinstance(pm, NeuralACAgentManager):
-                epoch = (i + 1) // 500
-                pm.print_stats_if_needed(epoch)
+    win_rate = num_wins[players[1]] / (i+1) * 100  # В процентах
+    win_rate_history.append(win_rate)
+
+    # Чекпоинты каждые 5000 игр: только сохранение модели (без валидации)
+    if (i + 1) % 5000 == 0:
+        for p, p_manager in gameManager.pm.items():
+            if isinstance(p_manager, NeuralACAgentManager):
+                p_manager.save_ac_agent(f"checkpoint_game_{i+1}.pth")
+                print(f"\n💾 Чекпоинт сохранён на игре {i+1}")
+
+                 # 2. Запускаем валидацию (проверка Value рук)
+                p_manager.run_validation(num_games_val=100)
+
+                # 3. Диагностика (распределение действий, гиперпараметры)
+                p_manager.diagnose_agent()
                 break
 
-    # Validation каждые 5000 игр
-    if (i + 1) % 5000 == 0:
-        for p, pm in gameManager.pm.items():
-            if isinstance(pm, NeuralACAgentManager):
-                pm.run_validation(num_games_val=100)
-                pm.save_ac_agent(f"neural_ac_agent_checkpoint_{i+1}.pth")
-                break
 
 StaticLogger.print_to("summary", f'\033[32mМеста в порядке убывания: {game_winners}\033[0m\n')
 StaticLogger.print_to("summary", f'\033[32mКоличество выигрышей: {num_wins}\033[0m\n')
+StaticLogger.print_to("summary", f"Win rate: {win_rate_history}")
 StaticLogger.flush_all()
+
+# ========== ПРОСТОЙ ГРАФИК WIN RATE ==========
+plt.figure(figsize=(10, 5))
+plt.plot(range(1, num_games + 1), win_rate_history, 'b-', linewidth=2)
+plt.xlabel('Номер игры')
+plt.ylabel('Win Rate, %')
+plt.title(f'Динамика Win Rate нейросетевого агента ({num_games} игр)')
+plt.grid(True, alpha=0.3)
+plt.ylim(0, 100)
+
+# Показываем финальное значение
+final_rate = win_rate_history[-1]
+plt.axhline(y=final_rate, color='r', linestyle='--', alpha=0.7)
+
+plt.show()
+
+# Только основная статистика
+print(f"\nФинальная статистика:")
+print(f"Всего игр: {num_games}")
+print(f"Побед: {num_wins[players[1]]}")
+print(f"Win Rate: {final_rate:.2f}%")
+
+NNData.show_losses()

@@ -3,14 +3,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Настраиваем категориальные логи эксперимента
-StaticLogger.configure_experiment_logs("Experiment_with_Aggressor_course_after_calling_LSTM", buffer_size=500)
+StaticLogger.configure_experiment_logs("Experiment_with_Aggressor_course_after_calling_LSTM")
 
 learning_num_games = 50
 learning_num_rounds = 50
 
 
 num_rounds = 30
-num_games = 10000
+num_games = 100_000
 
 
 game_winners = []
@@ -21,7 +21,12 @@ players = [
     ]
 
 pm = NeuralACAgentManager(players[1])
-pm.load_ac_agent(filename="neural_ac_agent_for_course_LSTM_after_calling.pth")
+pm.load_ac_agent(filename="Experiment_with_better_NN.pth")
+
+# Начальная валидация после загрузки модели
+print("\n🧪 Initial validation after model load:")
+pm.validate_hand_values()
+
 num_wins = { p:0 for p in players}
 
 win_rate_history = []  # История изменения винрейта
@@ -53,9 +58,16 @@ for i in range(num_games):
     if (i + 1) % 5000 == 0:
         for p, p_manager in gameManager.pm.items():
             if isinstance(p_manager, NeuralACAgentManager):
+                # 1. Сохраняем модель
                 p_manager.save_ac_agent(f"checkpoint_game_{i+1}.pth")
-                p_manager.run_validation(num_games_val=100)
                 print(f"\n💾 Чекпоинт сохранён на игре {i+1}")
+
+                # 2. Запускаем валидацию (проверка Value рук)
+                p_manager.run_validation(num_games_val=100)
+
+                # 3. Диагностика (распределение действий, гиперпараметры)
+                p_manager.diagnose_agent()
+
                 break
 
 
