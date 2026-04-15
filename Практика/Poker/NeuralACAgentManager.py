@@ -24,7 +24,7 @@ class NeuralACAgentManager(PlayerManager):
         self.replay_buffer = deque(maxlen=10000)
         self.entropy_coef = 0.005
         self.entropy_des = 0.99
-        self.min_entropy = 0.001
+        self.min_entropy = 0.0001
 
         self.total_loss_buffer = []
         self.actor_loss_buffer = []

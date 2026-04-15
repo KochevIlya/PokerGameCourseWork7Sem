@@ -11,10 +11,11 @@ learning_num_rounds = 50
 interval_games = 100
 start_time = time.time()
 interval_start_time = start_time
+checkpoint_interval = 10_000
 
 
 num_rounds = 30
-num_games = 4_000
+num_games = 80_000
 
 
 game_winners = []
@@ -57,7 +58,16 @@ for i in range(num_games):
 
         interval_start_time = current_time
 
+        if (i + 1) % checkpoint_interval == 0:
+            checkpoint_name = f"ac_model_checkpoint_{i+1}.pth"
+
+            # Рекомендую отключить сохранение памяти для промежуточных чекпоинтов,
+            # чтобы сэкономить место на диске.
+            pm.save_ac_agent(filename=checkpoint_name, save_memory=False)
+            StaticLogger.print(f"[*] Промежуточный чекпоинт создан: {checkpoint_name}")
+
     StaticLogger.print(f'\033[32mМеста в порядке убывания: {winners}\033[0m\n')
+
 
 
     game_winners.append(winners)
