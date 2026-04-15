@@ -73,7 +73,11 @@ def compare_hands(hand1, hand2):
         if h1_category == "RoyalFlush":
             return 0
         elif h1_category == "StraightFlush" or h1_category == "Straight" or h1_category == "Flush":
-            return hand1[0].compare(hand2[0])
+            for c1, c2 in zip(hand1, hand2):
+                res = c1.compare(c2)
+                if res != 0:
+                    return res
+            return 0
         elif h1_category == "FourofaKind":
             h1_cmp_h2 = hand1[1].compare(hand2[1])
             if h1_cmp_h2 == 0:
@@ -94,22 +98,20 @@ def compare_hands(hand1, hand2):
                 return h1_cmp_h2
         elif h1_category == "ThreeofaKind":
             h1_cmp_h2 = hand1[2].compare(hand2[2])
-            if h1_cmp_h2 == 0:
-                if hand1[1] == hand1[2]:
-                    match hand1[0].compare(hand2[0]):
-                        case 1: return 1
-                        case 2: return 2
-                        case 0: return hand1[1].compare(hand2[1])
-                else:
-                    match hand1[-2].compare(hand2[-2]):
-                        case 1:
-                            return 1
-                        case 2:
-                            return 2
-                        case 0:
-                            return hand1[-1].compare(hand2[-1])
-            else:
+            if h1_cmp_h2 != 0:
                 return h1_cmp_h2
+
+            # Если тройки равны, достаем кикеры (все, что не равно значению тройки)
+            triple_val = hand1[2].value
+            kickers1 = [c for c in hand1 if c.value != triple_val]
+            kickers2 = [c for c in hand2 if c.value != triple_val]
+
+            # Сравниваем первый кикер, если ничья — второй
+            for k1, k2 in zip(kickers1, kickers2):
+                res = k1.compare(k2)
+                if res != 0:
+                    return res
+            return 0
         elif h1_category == "TwoPair":
             b, h1_twop = is_twopair(hand1)
             b, h2_twop = is_twopair(hand2)

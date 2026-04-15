@@ -9,7 +9,7 @@ learning_num_rounds = 50
 
 
 num_rounds = 30
-num_games = 2_000
+num_games = 3_000
 
 
 game_winners = []

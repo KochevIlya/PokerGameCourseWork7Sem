@@ -1,4 +1,35 @@
 # tests/mocks.py
+from Практика.Poker.poker_rules import *
+
+class MockPlayer:
+        def __init__(self, hole):
+            self.hole_cards = hole
+            self.best_hand = None
+        def set_best_hand(self, hand):
+            self.best_hand = hand
+class MockLogicWrapper:
+        def __init__(self, player):
+            self.player = player
+
+        # Вставляем твой метод сюда для теста
+        def update_best_hand(self, table_cards):
+            from itertools import combinations
+            if len(table_cards) < 3:
+                return "HighCard"
+
+            all_cards = self.player.hole_cards + table_cards
+            combos = [list(combo) for combo in combinations(all_cards, 5)]
+
+            # ВАЖНО: здесь вызывается твоя функция best_hand
+            best = best_hand(combos)
+
+            best.sort(reverse=True)
+            self.player.set_best_hand(best)
+            return best
+
+
+
+
 class MockCard:
     suite = ""
     value = ""

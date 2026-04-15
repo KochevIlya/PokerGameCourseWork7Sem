@@ -230,7 +230,7 @@ class NeuralACAgentManager(PlayerManager):
         устанавливает решение игрока и логирует ситуацию.
         """
 
-        action_idx = self.act(s_actor, s_critic, can_check, training_mode=True)
+        action_idx = self.act(s_actor, s_critic, can_check, training_mode=False)
 
         action = ACTIONS[action_idx]
         self.player.set_decision(action)
