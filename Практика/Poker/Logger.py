@@ -9,11 +9,13 @@ class StaticLogger:
     _buffer_size = 80_000
     _buffer = []
     _debug = False
+    _is_needed = True
 
     @staticmethod
     def print(*args):
         """Статический метод для логирования"""
-
+        if not StaticLogger._is_needed:
+            return
         if StaticLogger._instance is None:
             StaticLogger._instance = StaticLogger()
 
@@ -34,6 +36,8 @@ class StaticLogger:
 
     @staticmethod
     def _save():
+        if not StaticLogger._is_needed:
+            return
         if StaticLogger._debug:
             print(f"[LOGGER] _save() вызван")
             print(f"[LOGGER] Буфер для записи: {len(StaticLogger._buffer)} сообщений")
@@ -77,7 +81,7 @@ class StaticLogger:
                 print(f"[LOGGER] Буфер пуст, нечего записывать")
 
     @staticmethod
-    def configure(filename=None, buffer_size=None, debug=False):
+    def configure(filename=None, buffer_size=None, debug=False, is_needed=True):
         """Настройка логгера"""
         if StaticLogger._debug:
             print(f"[LOGGER] configure() вызван с filename={filename}, buffer_size={buffer_size}")
@@ -87,7 +91,7 @@ class StaticLogger:
         if buffer_size:
             StaticLogger._buffer_size = buffer_size
         StaticLogger._debug = debug
-
+        StaticLogger._is_needed = is_needed
         with open(filename, 'w', encoding='utf-8') as f:
             f.write('')
         if StaticLogger._debug:
@@ -96,6 +100,8 @@ class StaticLogger:
     @staticmethod
     def flush():
         """Принудительная запись"""
+        if not StaticLogger._is_needed:
+            return
         if StaticLogger._debug:
             print(f"[LOGGER] flush() вызван")
         StaticLogger._save()

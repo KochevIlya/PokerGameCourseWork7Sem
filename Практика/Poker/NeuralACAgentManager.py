@@ -22,9 +22,9 @@ class NeuralACAgentManager(PlayerManager):
         self.episode_buffer = []
         self.update_frequency = 50
         self.replay_buffer = deque(maxlen=10000)
-        self.entropy_coef = 0.01
+        self.entropy_coef = 0.005
         self.entropy_des = 0.99
-        self.min_entropy = 0.005
+        self.min_entropy = 0.001
 
         self.total_loss_buffer = []
         self.actor_loss_buffer = []
@@ -204,6 +204,7 @@ class NeuralACAgentManager(PlayerManager):
         StaticLogger.print(f"Current Epsilon: {self.entropy_coef:.4f}")
         StaticLogger.print(f"Action Frequency: {action_freq}")
         StaticLogger.print(f"Num Actions: {action_sum}")
+        StaticLogger.print(f"Current sleazy win: {NNData.get_sleazy_win()}")
         StaticLogger.print(f"------------------------\n")
 
 
@@ -230,7 +231,7 @@ class NeuralACAgentManager(PlayerManager):
         устанавливает решение игрока и логирует ситуацию.
         """
 
-        action_idx = self.act(s_actor, s_critic, can_check, training_mode=False)
+        action_idx = self.act(s_actor, s_critic, can_check, training_mode=True)
 
         action = ACTIONS[action_idx]
         self.player.set_decision(action)

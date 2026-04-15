@@ -10,12 +10,26 @@ class NNData:
     loss_actor_buffer = []
     loss_buffer = []
     entropy_buffer = []
-
+    win_history = []  # Список из 0 и 1 для каждой игры
+    rolling_win_rate_history = []
 
     action_freq_buffer = []
     value_gap_buffer = []
     _tmp_action_counter = {0: 0, 1: 0, 2: 0}
 
+    @staticmethod
+    def record_game_result(is_win, window_size=100):
+        """
+        Записывает результат игры и вычисляет скользящий винрейт.
+        is_win: True если агент выиграл, False если нет.
+        """
+        NNData.win_history.append(1 if is_win else 0)
+
+        last_games = NNData.win_history[-window_size:]
+
+
+        current_rolling_rate = (sum(last_games) / len(last_games)) * 100
+        NNData.rolling_win_rate_history.append(current_rolling_rate)
 
     @staticmethod
     def record_action(action_idx):
@@ -55,6 +69,9 @@ class NNData:
     @staticmethod
     def get_buffer():
         return NNData.episode_buffer
+    @staticmethod
+    def get_sleazy_win():
+        return NNData.rolling_win_rate_history[-1]
 
     @staticmethod
     def clear():
@@ -141,4 +158,21 @@ class NNData:
             plt.title("Evolution of Playing Style")
             plt.ylabel("Percentage %")
             plt.legend(loc='upper right')
+            plt.show()
+
+        # Новый график: Скользящий Винрейт
+        if NNData.rolling_win_rate_history:
+            plt.figure(figsize=(10, 5))
+            plt.plot(range(1, len(NNData.rolling_win_rate_history) + 1),
+                     NNData.rolling_win_rate_history, 'b-', label='Rolling Win Rate')
+
+            # Рисуем горизонтальную линию 50% для ориентира
+            plt.axhline(y=50, color='black', linestyle='--', alpha=0.3)
+
+            plt.xlabel('Номер игры')
+            plt.ylabel('Win Rate (%)')
+            plt.title(f'Moving Average Win Rate (Window: 100 games)')
+            plt.grid(True, alpha=0.3)
+            plt.ylim(-5, 105) # Чуть шире 100, чтобы видеть края
+            plt.legend()
             plt.show()
