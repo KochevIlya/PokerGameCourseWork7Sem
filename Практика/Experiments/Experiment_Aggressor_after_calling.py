@@ -9,18 +9,19 @@ learning_num_rounds = 50
 
 
 num_rounds = 30
-num_games = 30000
+num_games = 2_000
 
 
 game_winners = []
 
 players = [
-        SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor"),
+        # SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor"),
+        CallingPlayer(),
         NeuralACAgent()
     ]
 
 pm = NeuralACAgentManager(players[1])
-pm.load_ac_agent(filename="neural_ac_agent_for_course_after_calling.pth")
+pm.load_ac_agent(filename="neural_ac_agent_for_course.pth")
 num_wins = { p:0 for p in players}
 
 win_rate_history = []  # История изменения винрейта
@@ -75,4 +76,4 @@ print(f"Всего игр: {num_games}")
 print(f"Побед: {num_wins[players[1]]}")
 print(f"Win Rate: {final_rate:.2f}%")
 
-NNData.show_losses()
+NNData.show_all_stats()

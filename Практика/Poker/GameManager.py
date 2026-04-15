@@ -99,21 +99,26 @@ class GameManager:
             if isinstance(player, NeuralACAgent) and self.games_count % self.num_games_safe_model == 0 and self.round == 0:
                 self.pm[player].save_ac_agent()
 
+
+        StaticLogger.print(f"\nPREFLOP\n")
         self._betting_round(stage="preflop")
         
         self._deal_flop()
         self.show_current_situation()
 
-
+        StaticLogger.print(f"\nFLOP\n")
         self._betting_round(stage="flop")
 
         self._deal_turn()
         self.show_current_situation()
+
+        StaticLogger.print(f"\nTURN\n")
         self._betting_round(stage="turn")
 
 
         self._deal_river()
         self.show_current_situation()
+        StaticLogger.print(f"\nRIVER\n")
         self._betting_round(stage="river")
 
 
@@ -143,7 +148,10 @@ class GameManager:
                 else:
                     net_profit = -player.get_bet()
 
-                final_reward = net_profit / self.game.initial_stack / self.num_players
+                bb_size = self.game.min_bet
+                final_reward = net_profit / bb_size
+                final_reward = torch.clamp(torch.tensor(final_reward), min=-15.0, max=15.0)
+                StaticLogger.print(f"Current_reward: {final_reward}")
 
                 if pm.episode_data:
                     pm.train_actor_critic(final_reward)

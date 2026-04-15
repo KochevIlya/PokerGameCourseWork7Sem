@@ -6,7 +6,7 @@ class StaticLogger:
 
     _instance = None
     _filename = "app.log"
-    _buffer_size = 1000
+    _buffer_size = 80_000
     _buffer = []
     _debug = False
 
