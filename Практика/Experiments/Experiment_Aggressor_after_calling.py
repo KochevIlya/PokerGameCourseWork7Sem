@@ -15,7 +15,7 @@ num_games = 3_000
 game_winners = []
 
 players = [
-        # SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor"),
+        SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor"),
         CallingPlayer(),
         NeuralACAgent()
     ]
