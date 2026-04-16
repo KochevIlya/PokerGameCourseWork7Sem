@@ -22,10 +22,10 @@ class NeuralACAgentManager(PlayerManager):
         self.episode_buffer = []
         self.update_frequency = 50
         self.replay_buffer = deque(maxlen=10000)
-        self.entropy_coef = 0.2
+        self.entropy_coef = 0.01
         self.entropy_des = 0.99
-        self.min_entropy = 0.1
-        self.critic_loss_coef = 0.3
+        self.min_entropy = 0.005
+        self.critic_loss_coef = 2.0
         self.actor_loss_coef = 1.0
         self.total_loss_buffer = []
         self.actor_loss_buffer = []
@@ -173,10 +173,17 @@ class NeuralACAgentManager(PlayerManager):
         StaticLogger.print(f"Normalized Advantage: {advantage.mean().item():.6f}\n")
         actor_loss = -(log_probs * advantage).mean()
 
-        critic_loss = F.smooth_l1_loss(values, returns)
+        critic_loss = F.mse_loss(values, returns)
 
         self.entropy_coef = max(self.entropy_coef * self.entropy_des, self.min_entropy)
-        total_loss = self.actor_loss_coef * actor_loss + self.critic_loss_coef * critic_loss - self.entropy_coef * dist_entropy
+
+        StaticLogger.print(f"Normalized Advantage: {advantage.mean().item():.6f}\n")
+        StaticLogger.print(f"Normalized Advantage: {advantage.mean().item():.6f}\n")
+        StaticLogger.print(f"Normalized Advantage: {advantage.mean().item():.6f}\n")
+
+        total_loss = (self.actor_loss_coef * actor_loss
+                      + self.critic_loss_coef * critic_loss
+                      - self.entropy_coef * dist_entropy)
 
         self.player.optimizer.zero_grad()
         total_loss.backward()
@@ -344,7 +351,7 @@ class NeuralACAgentManager(PlayerManager):
             # Загружаем веса
             self.player.ac_net.load_state_dict(checkpoint['ac_net_state_dict'], strict=strict)
 
-            #Откручивание головы для логитов
+            # Откручивание головы для логитов
             # with torch.no_grad():
             #     nn.init.orthogonal_(self.player.ac_net.actor_head.weight, gain=0.01)
             #     nn.init.constant_(self.player.ac_net.actor_head.bias, 0)
@@ -353,7 +360,10 @@ class NeuralACAgentManager(PlayerManager):
                 self.player.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
                 #Подгрузка Optimizer
-                #self.player.optimizer.param_groups[1]['lr'] = 5e-4
+                self.player.optimizer.param_groups[1]['lr'] = 1e-5
+                print(f"Current Actor LR: {self.player.optimizer.param_groups[0]['lr']}")
+                print(f"Current Critic LR: {self.player.optimizer.param_groups[1]['lr']}")
+
 
             if 'gamma' in checkpoint:
                 self.player.gamma = checkpoint['gamma']
@@ -367,6 +377,7 @@ class NeuralACAgentManager(PlayerManager):
                 self.player.stack = checkpoint['stack']
 
             print(f"[✅] Агент {checkpoint.get('name')} успешно загружен")
+            print(f"Current gamma: {self.player.gamma}")
             return True
 
         except Exception as e:
