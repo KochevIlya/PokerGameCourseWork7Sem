@@ -84,7 +84,7 @@ class NeuralACAgent(Player):
                 'params': actor_params, 'lr': 1e-4,
                 'weight_decay': 1e-3
              }, # Был 5e-5, стал 1e-4 (в 2 раза больше)
-            {'params': critic_params, 'lr': 5e-5} # Оставляем старый или можно чуть меньше
+            {'params': critic_params, 'lr': 5e-4} # Оставляем старый или можно чуть меньше
         ])
         self.gamma = 0.96
 

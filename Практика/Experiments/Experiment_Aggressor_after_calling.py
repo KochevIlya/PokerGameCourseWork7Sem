@@ -3,7 +3,7 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 
-StaticLogger.configure("Experiment_with_Aggressor_course_after_calling.log", 1000, is_needed=False)
+StaticLogger.configure("Experiment_with_Aggressor_course_after_calling.log", 1000, is_needed=True)
 
 learning_num_games = 50
 learning_num_rounds = 50

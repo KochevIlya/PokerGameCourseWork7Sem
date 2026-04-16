@@ -22,10 +22,11 @@ class NeuralACAgentManager(PlayerManager):
         self.episode_buffer = []
         self.update_frequency = 50
         self.replay_buffer = deque(maxlen=10000)
-        self.entropy_coef = 0.05
+        self.entropy_coef = 0.2
         self.entropy_des = 0.99
-        self.min_entropy = 0.01
-
+        self.min_entropy = 0.1
+        self.critic_loss_coef = 0.3
+        self.actor_loss_coef = 1.0
         self.total_loss_buffer = []
         self.actor_loss_buffer = []
         self.critic_loss_buffer = []
@@ -172,10 +173,10 @@ class NeuralACAgentManager(PlayerManager):
         StaticLogger.print(f"Normalized Advantage: {advantage.mean().item():.6f}\n")
         actor_loss = -(log_probs * advantage).mean()
 
-        critic_loss = F.mse_loss(values, returns)
+        critic_loss = F.smooth_l1_loss(values, returns)
 
         self.entropy_coef = max(self.entropy_coef * self.entropy_des, self.min_entropy)
-        total_loss = actor_loss + 0.5 * critic_loss - self.entropy_coef * dist_entropy
+        total_loss = self.actor_loss_coef * actor_loss + self.critic_loss_coef * critic_loss - self.entropy_coef * dist_entropy
 
         self.player.optimizer.zero_grad()
         total_loss.backward()
@@ -241,7 +242,7 @@ class NeuralACAgentManager(PlayerManager):
         устанавливает решение игрока и логирует ситуацию.
         """
 
-        action_idx = self.act(s_actor, s_critic, can_check, training_mode=False)
+        action_idx = self.act(s_actor, s_critic, can_check, training_mode=True)
 
         action = ACTIONS[action_idx]
         self.player.set_decision(action)
@@ -351,6 +352,9 @@ class NeuralACAgentManager(PlayerManager):
             if 'optimizer_state_dict' in checkpoint:
                 self.player.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
+                #Подгрузка Optimizer
+                #self.player.optimizer.param_groups[1]['lr'] = 5e-4
+
             if 'gamma' in checkpoint:
                 self.player.gamma = checkpoint['gamma']
 
@@ -396,10 +400,18 @@ class NeuralACAgentManager(PlayerManager):
 
             gap = v_aa.item() - v_72.item()
 
+            s_equal = np.zeros((1, self.player.critic_size), dtype=np.float32)
+            s_equal[0, 0] = 0.5
+            s_equal[0, -1] = 0.5
+            s_critic_eq = torch.tensor(s_equal).to(self.device)
+
+            _, v_eq = self.player.ac_net(s_actor_empty, s_critic_eq)
+
         self.player.ac_net.train()
 
         # Логируем результат
-        msg = f"🧪 [Value Gap] AA: {v_aa.item():.4f} vs 72o: {v_72.item():.4f} | GAP: {gap:.4f}"
+        msg = (f"🧪 [Value Gap] AA: {v_aa.item():.4f} vs 72o: {v_72.item():.4f} | GAP: {gap:.4f}\n"
+               f"🧪 [Value Gap] Equal: {v_eq.item():.4f}")
         print(msg)
         StaticLogger.print( msg) # Отправляем в лог обучения
 
