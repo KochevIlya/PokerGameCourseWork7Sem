@@ -5,7 +5,7 @@ class NNData:
 
     _instance = None
     episode_buffer = []
-    BATCH_SIZE = 1024
+    BATCH_SIZE = 8192
     loss_critic_buffer = []
     loss_actor_buffer = []
     loss_buffer = []

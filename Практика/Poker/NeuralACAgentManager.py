@@ -22,9 +22,9 @@ class NeuralACAgentManager(PlayerManager):
         self.episode_buffer = []
         self.update_frequency = 50
         self.replay_buffer = deque(maxlen=10000)
-        self.entropy_coef = 0.005
+        self.entropy_coef = 0.05
         self.entropy_des = 0.99
-        self.min_entropy = 0.0001
+        self.min_entropy = 0.01
 
         self.total_loss_buffer = []
         self.actor_loss_buffer = []
@@ -207,6 +207,16 @@ class NeuralACAgentManager(PlayerManager):
         StaticLogger.print(f"Current sleazy win: {NNData.get_sleazy_win()}")
         StaticLogger.print(f"------------------------\n")
 
+        print(f"\n--- [DEBUG LEARNING] ---")
+        print(f"Actor (Reward) Signal: {reward_signal:.6f}")
+        print(f"Entropy (Chaos) Signal: {entropy_contribution:.6f}")
+        print(f"Signal Ratio (Rew/Ent): {signal_ratio:.4f}")
+        print(f"Mean Advantage: {advantage.mean().item():.6f}")
+        print(f"Current Epsilon: {self.entropy_coef:.4f}")
+        print(f"Action Frequency: {action_freq}")
+        print(f"Num Actions: {action_sum}")
+        print(f"Current sleazy win: {NNData.get_sleazy_win()}")
+        print(f"------------------------\n")
 
         StaticLogger.print(f"Update: Loss={total_loss.item():.4f}, Actor={actor_loss.item():.4f}, Critic={critic_loss.item():.4f}")
         StaticLogger.print(f"Entropy: {dist_entropy.item():.4f}")

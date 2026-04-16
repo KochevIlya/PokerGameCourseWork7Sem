@@ -86,7 +86,7 @@ class NeuralACAgent(Player):
              }, # Был 5e-5, стал 1e-4 (в 2 раза больше)
             {'params': critic_params, 'lr': 5e-5} # Оставляем старый или можно чуть меньше
         ])
-        self.gamma = 0.95
+        self.gamma = 0.96
 
         self.memory = deque(maxlen=20000)
 
