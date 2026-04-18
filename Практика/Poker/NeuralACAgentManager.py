@@ -22,11 +22,11 @@ class NeuralACAgentManager(PlayerManager):
         self.episode_buffer = []
         self.update_frequency = 50
         self.replay_buffer = deque(maxlen=10000)
-        self.entropy_coef = 0.01
+        self.entropy_coef = 0.05
         self.entropy_des = 0.99
-        self.min_entropy = 0.005
+        self.min_entropy = 0.02
         self.critic_loss_coef = 2.0
-        self.actor_loss_coef = 1.0
+        self.actor_loss_coef = 5.0
         self.total_loss_buffer = []
         self.actor_loss_buffer = []
         self.critic_loss_buffer = []
@@ -54,7 +54,8 @@ class NeuralACAgentManager(PlayerManager):
         self.player.ac_net.train()
 
         if can_check:
-            action_logits[0, 0] = -1e9
+            pass
+            # action_logits[0, 0] = -1e9
         if training_mode:
             policy_dist = distributions.Categorical(logits=action_logits)
             action_tensor = policy_dist.sample()
@@ -168,7 +169,8 @@ class NeuralACAgentManager(PlayerManager):
         StaticLogger.print(f"Advantage: {advantage}\n")
 
         if advantage.size(0) > 1: # Проверка, что в батче больше одного элемента
-            advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-8)
+            # advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-8)
+            advantage = advantage / (advantage.std() + 1e-8)
 
         StaticLogger.print(f"Normalized Advantage: {advantage.mean().item():.6f}\n")
         actor_loss = -(log_probs * advantage).mean()
@@ -177,20 +179,63 @@ class NeuralACAgentManager(PlayerManager):
 
         self.entropy_coef = max(self.entropy_coef * self.entropy_des, self.min_entropy)
 
-        StaticLogger.print(f"Normalized Advantage: {advantage.mean().item():.6f}\n")
-        StaticLogger.print(f"Normalized Advantage: {advantage.mean().item():.6f}\n")
-        StaticLogger.print(f"Normalized Advantage: {advantage.mean().item():.6f}\n")
+
 
         total_loss = (self.actor_loss_coef * actor_loss
                       + self.critic_loss_coef * critic_loss
                       - self.entropy_coef * dist_entropy)
 
+        actor_params = [p for n, p in self.player.ac_net.named_parameters() if "actor" in n]
+        critic_params = [p for n, p in self.player.ac_net.named_parameters() if "critic" in n]
+
+        # Замеряем градиент от Актёра (на веса актёра)
+        grad_a = torch.autograd.grad(actor_loss * self.actor_loss_coef, actor_params, retain_graph=True, allow_unused=True)
+        actor_grad_norm = torch.norm(torch.stack([torch.norm(g.detach(), 2) for g in grad_a if g is not None]), 2).item()
+
+        # Замеряем градиент от Критика (на веса критика)
+        grad_c = torch.autograd.grad(critic_loss * self.critic_loss_coef, critic_params, retain_graph=True, allow_unused=True)
+        critic_grad_norm = torch.norm(torch.stack([torch.norm(g.detach(), 2) for g in grad_c if g is not None]), 2).item()
+
+        # Замеряем градиент от Энтропии (влияет на веса актёра)
+        grad_e = torch.autograd.grad(-dist_entropy * self.entropy_coef, actor_params, retain_graph=True, allow_unused=True)
+        entropy_grad_norm = torch.norm(torch.stack([torch.norm(g.detach(), 2) for g in grad_e if g is not None]), 2).item()
+        # --------------------------------
+
         self.player.optimizer.zero_grad()
+        debug_total_loss = total_loss.item()
         total_loss.backward()
 
         total_norm = torch.nn.utils.clip_grad_norm_(self.player.ac_net.parameters(), max_norm=1.0)
         StaticLogger.print(f"Gradient Norm: {total_norm:.4f}")
+
+        # === 1. СОХРАНЯЕМ ВЕСА ДО ШАГА ОПТИМИЗАТОРА ===
+        actor_params_before = [p.clone().detach() for n, p in self.player.ac_net.named_parameters() if "actor" in n]
+        critic_params_before = [p.clone().detach() for n, p in self.player.ac_net.named_parameters() if "critic" in n]
+
         self.player.optimizer.step()
+
+        # === 2. БЕРЕМ ВЕСА ПОСЛЕ ШАГА ОПТИМИЗАТОРА ===
+        with torch.no_grad():
+            actor_params_after = [p for n, p in self.player.ac_net.named_parameters() if "actor" in n]
+            critic_params_after = [p for n, p in self.player.ac_net.named_parameters() if "critic" in n]
+
+            # Считаем "расстояние", на которое сдвинулись веса (Update Norm)
+            actor_update_norm = torch.norm(torch.stack([torch.norm(p_after - p_before, 2) for p_after, p_before in zip(actor_params_after, actor_params_before)]), 2).item()
+            critic_update_norm = torch.norm(torch.stack([torch.norm(p_after - p_before, 2) for p_after, p_before in zip(critic_params_after, critic_params_before)]), 2).item()
+
+            # Считаем размер самих весов (Weight Norm), чтобы понять масштаб
+            actor_weight_norm = torch.norm(torch.stack([torch.norm(p, 2) for p in actor_params_after]), 2).item()
+            critic_weight_norm = torch.norm(torch.stack([torch.norm(p, 2) for p in critic_params_after]), 2).item()
+
+            # === 3. СЧИТАЕМ ИДЕАЛЬНУЮ МЕТРИКУ (Update-to-Weight Ratio) ===
+            actor_update_ratio = actor_update_norm / (actor_weight_norm + 1e-8)
+            critic_update_ratio = critic_update_norm / (critic_weight_norm + 1e-8)
+
+        StaticLogger.print(f"\n--- [REAL LEARNING SPEED (Update/Weight)] ---")
+        StaticLogger.print(f"ACTOR  Shift: {actor_update_norm:.6f} | Ratio: {actor_update_ratio:.6f}")
+        StaticLogger.print(f"CRITIC Shift: {critic_update_norm:.6f} | Ratio: {critic_update_ratio:.6f}")
+        StaticLogger.print(f"Who is faster?: {'ACTOR' if actor_update_ratio > critic_update_ratio else 'CRITIC'} ({max(actor_update_ratio, critic_update_ratio) / (min(actor_update_ratio, critic_update_ratio) + 1e-8):.2f}x faster)")
+        StaticLogger.print(f"---------------------------------------------")
 
         with torch.no_grad():
             # Сигнал от награды (насколько сильно мы хотим закрепить действия)
@@ -204,11 +249,21 @@ class NeuralACAgentManager(PlayerManager):
         action_sum = sum(action_freq.values())
         action_freq = [i / action_sum for i in action_freq.values()]
 
+        StaticLogger.print(f"\n--- [GRADIENT ANALYTICS] ---")
+        StaticLogger.print(f"FORCE - Actor Grad Norm:   {actor_grad_norm:.6f}")
+        StaticLogger.print(f"FORCE - Critic Grad Norm:  {critic_grad_norm:.6f}")
+        StaticLogger.print(f"FORCE - Entropy Grad Norm: {entropy_grad_norm:.6f}")
+        StaticLogger.print(f"TOTAL CLIPPED NORM:      {total_norm:.4f}")
+        StaticLogger.print(f"----------------------------")
+
+
         StaticLogger.print(f"\n--- [DEBUG LEARNING] ---")
         StaticLogger.print(f"Actor (Reward) Signal: {reward_signal:.6f}")
         StaticLogger.print(f"Entropy (Chaos) Signal: {entropy_contribution:.6f}")
         StaticLogger.print(f"Signal Ratio (Rew/Ent): {signal_ratio:.4f}")
-        StaticLogger.print(f"Mean Advantage: {advantage.mean().item():.6f}")
+        StaticLogger.print(f"Actor Loss in Total: {self.actor_loss_coef * actor_loss:.6f}\n")
+        StaticLogger.print(f"Critic Loss in Total: {self.critic_loss_coef * critic_loss:.6f}\n")
+        StaticLogger.print(f"Entropy Loss in Total: {self.entropy_coef * dist_entropy:.6f}\n")
         StaticLogger.print(f"Current Epsilon: {self.entropy_coef:.4f}")
         StaticLogger.print(f"Action Frequency: {action_freq}")
         StaticLogger.print(f"Num Actions: {action_sum}")
@@ -226,7 +281,7 @@ class NeuralACAgentManager(PlayerManager):
         print(f"Current sleazy win: {NNData.get_sleazy_win()}")
         print(f"------------------------\n")
 
-        StaticLogger.print(f"Update: Loss={total_loss.item():.4f}, Actor={actor_loss.item():.4f}, Critic={critic_loss.item():.4f}")
+        StaticLogger.print(f"Update: Loss={debug_total_loss:.4f}, Actor={actor_loss.item():.4f}, Critic={critic_loss.item():.4f}")
         StaticLogger.print(f"Entropy: {dist_entropy.item():.4f}")
 
         stats = self.validate_hand_values() # Метод должен возвращать gap
@@ -359,8 +414,10 @@ class NeuralACAgentManager(PlayerManager):
             if 'optimizer_state_dict' in checkpoint:
                 self.player.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
-                #Подгрузка Optimizer
-                self.player.optimizer.param_groups[1]['lr'] = 1e-5
+                # Подгрузка Optimizer
+                self.player.optimizer.param_groups[0]['lr'] = 2e-4
+                self.player.optimizer.param_groups[1]['lr'] = 2e-5
+
                 print(f"Current Actor LR: {self.player.optimizer.param_groups[0]['lr']}")
                 print(f"Current Critic LR: {self.player.optimizer.param_groups[1]['lr']}")
 
