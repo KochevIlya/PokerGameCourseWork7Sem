@@ -25,7 +25,7 @@ class NeuralACAgentManager(PlayerManager):
         self.entropy_coef = 0.02
         self.entropy_des = 0.99
         self.min_entropy = 0.01
-        self.critic_loss_coef = 2.0
+        self.critic_loss_coef = 1.0
         self.actor_loss_coef = 5.0
         self.total_loss_buffer = []
         self.actor_loss_buffer = []
@@ -459,7 +459,7 @@ class NeuralACAgentManager(PlayerManager):
             _, v_aa = self.player.ac_net(s_actor_empty, s_critic_aa)
 
             # 2. Тест "Слабая рука" (72 разномастные)
-            s_72 = np.zeros((1, self.player.critic_size), dtype=np.float32)
+            s_72 = np.full((1, self.player.critic_size), 0.5, dtype=np.float32)
             s_72[0, 0] = 0.1
             s_72[0, -1] = 0.9
             s_critic_72 = torch.tensor(s_72).to(self.device)
@@ -468,9 +468,9 @@ class NeuralACAgentManager(PlayerManager):
 
             gap = v_aa.item() - v_72.item()
 
-            s_equal = np.zeros((1, self.player.critic_size), dtype=np.float32)
-            s_equal[0, 0] = 0.5
-            s_equal[0, -1] = 0.5
+            s_equal = np.full((1, self.player.critic_size), 0.5, dtype=np.float32)
+            # s_equal[0, 0] = 0.5
+            # s_equal[0, -1] = 0.5
             s_critic_eq = torch.tensor(s_equal).to(self.device)
 
             _, v_eq = self.player.ac_net(s_actor_empty, s_critic_eq)
