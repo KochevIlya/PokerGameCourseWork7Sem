@@ -415,8 +415,8 @@ class NeuralACAgentManager(PlayerManager):
                 self.player.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
                 # Подгрузка Optimizer
-                self.player.optimizer.param_groups[0]['lr'] = 2e-4
-                self.player.optimizer.param_groups[1]['lr'] = 2e-5
+                self.player.optimizer.param_groups[0]['lr'] = 9e-5
+                self.player.optimizer.param_groups[1]['lr'] = 9e-6
 
                 print(f"Current Actor LR: {self.player.optimizer.param_groups[0]['lr']}")
                 print(f"Current Critic LR: {self.player.optimizer.param_groups[1]['lr']}")

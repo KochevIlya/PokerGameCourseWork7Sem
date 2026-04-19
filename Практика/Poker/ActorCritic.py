@@ -38,7 +38,7 @@ class ActorCriticNet(nn.Module):
         a2_cat = torch.cat([a2, actor_hand_strength], dim=1)
 
         action_logits = self.actor_head(a2_cat)
-        action_logits = torch.clamp(action_logits, min=-5, max=5)
+        action_logits = torch.clamp(action_logits, min=-4, max=4)
 
         # --- ПРЯМОЙ ПРОХОД КРИТИКА ---
         state_value = None

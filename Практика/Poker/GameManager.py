@@ -149,7 +149,7 @@ class GameManager:
                     net_profit = -player.get_bet()
 
                 final_reward = net_profit / self.game.initial_stack
-                final_reward = torch.clamp(torch.tensor(final_reward), min=-15.0, max=15.0)
+                # final_reward = torch.clamp(torch.tensor(final_reward), min=-15.0, max=15.0)
                 StaticLogger.print(f"Current_reward: {final_reward}")
 
                 if pm.episode_data:
