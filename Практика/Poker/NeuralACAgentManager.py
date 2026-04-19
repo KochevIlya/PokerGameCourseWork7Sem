@@ -22,9 +22,9 @@ class NeuralACAgentManager(PlayerManager):
         self.episode_buffer = []
         self.update_frequency = 50
         self.replay_buffer = deque(maxlen=10000)
-        self.entropy_coef = 0.05
+        self.entropy_coef = 0.02
         self.entropy_des = 0.99
-        self.min_entropy = 0.02
+        self.min_entropy = 0.01
         self.critic_loss_coef = 2.0
         self.actor_loss_coef = 5.0
         self.total_loss_buffer = []
@@ -415,7 +415,7 @@ class NeuralACAgentManager(PlayerManager):
                 self.player.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
                 # Подгрузка Optimizer
-                self.player.optimizer.param_groups[0]['lr'] = 9e-5
+                self.player.optimizer.param_groups[0]['lr'] = 7e-5
                 self.player.optimizer.param_groups[1]['lr'] = 9e-6
 
                 print(f"Current Actor LR: {self.player.optimizer.param_groups[0]['lr']}")
@@ -447,7 +447,7 @@ class NeuralACAgentManager(PlayerManager):
         with torch.no_grad():
             # 1. Тест "Сильная рука" (Тузы AA)
             # Создаем вектор размера critic_size, где 0-й элемент (hand_strength) = 0.9
-            s_aa = np.zeros((1, self.player.critic_size), dtype=np.float32)
+            s_aa = np.full((1, self.player.critic_size), 0.5, dtype=np.float32)
             s_aa[0, 0] = 0.9  # Сила нашей руки
             s_aa[0, -1] = 0.1 # Сила руки оппонента (последний элемент)
 
