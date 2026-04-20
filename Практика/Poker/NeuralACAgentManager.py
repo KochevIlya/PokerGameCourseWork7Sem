@@ -415,8 +415,8 @@ class NeuralACAgentManager(PlayerManager):
                 self.player.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
                 # Подгрузка Optimizer
-                self.player.optimizer.param_groups[0]['lr'] = 7e-5
-                self.player.optimizer.param_groups[1]['lr'] = 9e-6
+                self.player.optimizer.param_groups[0]['lr'] = 7e-4
+                self.player.optimizer.param_groups[1]['lr'] = 9e-4
 
                 print(f"Current Actor LR: {self.player.optimizer.param_groups[0]['lr']}")
                 print(f"Current Critic LR: {self.player.optimizer.param_groups[1]['lr']}")
@@ -424,6 +424,7 @@ class NeuralACAgentManager(PlayerManager):
 
             if 'gamma' in checkpoint:
                 self.player.gamma = checkpoint['gamma']
+                self.player.gamma = 0.98
 
             if load_memory and 'memory' in checkpoint and hasattr(self.player, 'memory'):
                 self.player.memory.clear()
