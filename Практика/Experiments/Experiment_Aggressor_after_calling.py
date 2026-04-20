@@ -15,7 +15,7 @@ checkpoint_interval = 10_000
 
 
 num_rounds = 30
-num_games = 100_000
+num_games = 30_000
 
 
 game_winners = []

@@ -26,7 +26,7 @@ class NeuralACAgentManager(PlayerManager):
         self.entropy_des = 0.99
         self.min_entropy = 0.01
         self.critic_loss_coef = 1.0
-        self.actor_loss_coef = 5.0
+        self.actor_loss_coef = 6.0
         self.total_loss_buffer = []
         self.actor_loss_buffer = []
         self.critic_loss_buffer = []
@@ -415,8 +415,8 @@ class NeuralACAgentManager(PlayerManager):
                 self.player.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
                 # Подгрузка Optimizer
-                self.player.optimizer.param_groups[0]['lr'] = 7e-4
-                self.player.optimizer.param_groups[1]['lr'] = 9e-4
+                self.player.optimizer.param_groups[0]['lr'] = 1e-4
+                self.player.optimizer.param_groups[1]['lr'] = 1e-4
 
                 print(f"Current Actor LR: {self.player.optimizer.param_groups[0]['lr']}")
                 print(f"Current Critic LR: {self.player.optimizer.param_groups[1]['lr']}")
@@ -424,7 +424,7 @@ class NeuralACAgentManager(PlayerManager):
 
             if 'gamma' in checkpoint:
                 self.player.gamma = checkpoint['gamma']
-                self.player.gamma = 0.98
+                self.player.gamma = 0.99
 
             if load_memory and 'memory' in checkpoint and hasattr(self.player, 'memory'):
                 self.player.memory.clear()
