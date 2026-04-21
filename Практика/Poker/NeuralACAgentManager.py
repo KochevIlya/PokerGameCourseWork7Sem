@@ -115,12 +115,14 @@ class NeuralACAgentManager(PlayerManager):
             self.episode_buffer = NNData.get_buffer()
             print(f"Target Network updated!!!, Length: {len(self.episode_buffer)}")
             self._update_network()
+            NNData.clear()
 
 
     def _update_network(self):
         """
         Выполняет один шаг градиентного спуска на накопленном батче данных.
         """
+
         if not self.episode_buffer:
             return
         StaticLogger.print(f"\nUpdate Network\n")

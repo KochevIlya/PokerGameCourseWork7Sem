@@ -15,14 +15,14 @@ checkpoint_interval = 10_000
 
 
 num_rounds = 30
-num_games = 30_000
+num_games = 100_000
 
 
 game_winners = []
 
 players = [
-        SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor"),
-        #CallingPlayer(),
+        # SimpleGeneticBot([0.8, 0.1, 0.1], name="Aggressor"),
+        CallingPlayer(),
         NeuralACAgent()
     ]
 
